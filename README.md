@@ -138,6 +138,36 @@ sees it are designed and not built. Until they are, run the judge in a position
 the author's code cannot reach and enforce with your engine's own tools. See
 [docs/architecture.md](docs/architecture.md).
 
+## Beyond the judge
+
+Admission is one layer of a safe Prolog host, and the cheapest. A deployment
+that lets untrusted authors store and run rules also needs:
+
+- **Isolation.** One author's clauses, global state and tables must be
+  unreachable from another's, which in practice means a worker per tenant and a
+  discipline for what survives a restart.
+- **Enforcement.** Time, inference and stack caps on every call, and an abort
+  the author's own `catch/3` cannot swallow.
+- **Governed re-entry.** A proof that needs live data mid-inference has to reach
+  the outside world through the same policy, accounting and audit path as any
+  other action, and resume with the result bound.
+- **Receipts.** A record of what was admitted, under which profiles, by which
+  version of which attestations, so a judgment can be audited after the fact.
+- **Attestation.** Every profile entry is a claim that a predicate is pure on a
+  given engine version. Profiles are cheap to write; keeping the claims true as
+  engines change is the expensive part, and it only happens where the library
+  meets real traffic.
+
+Hornguard was extracted in September 2026 from the sandbox guarding
+[DataGrout](https://github.com/DataGrout)'s production Logic Cells, a
+multi-tenant service where agents write and run Prolog. DataGrout's platform
+implements the layers above on top of this judge: certified admission with
+signed receipts, per-tenant isolation, governed tool calls from inside a proof,
+and content screening for what the rules are fed. Its profiles, trust
+declarations and incident-derived regression battery are private; findings from
+them land here as fixtures once the fix has shipped. The library is the seam.
+What a host builds above it is the host's business.
+
 ## How it is tested
 
 A sandbox is only as good as the attempts made against it, so the suite is
@@ -151,12 +181,9 @@ adversarial by construction and all of it runs under `make test`:
 | Sandbox differential | every predicate the engine defines, judged by Hornguard and by SWI's `library(sandbox)`; any admit that sandbox refuses, or any unexplained refusal, fails |
 | Mutation | one rule of the walk disabled at a time; every mutant must fail the suite |
 
-The public suite is the structural contract and it is not the whole picture.
-Hornguard is maintained by [DataGrout](https://github.com/DataGrout), where it
-guards a multi-tenant production service that admits agent-written Prolog. That
-deployment's profiles, its trust declarations and its regression battery derived
-from production incidents are private, and findings from them land here as
-fixtures after the fix ships. Security reports: [SECURITY.md](SECURITY.md).
+The public suite is the structural contract, not the whole picture; see
+"Beyond the judge" for what stays private and why. Security reports:
+[SECURITY.md](SECURITY.md).
 
 ## Layout
 
@@ -174,3 +201,7 @@ fixtures after the fix ships. Security reports: [SECURITY.md](SECURITY.md).
 
 Apache-2.0. Contributions under the Developer Certificate of Origin; see
 [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+Hornguard is a [DataGrout](https://github.com/DataGrout) project.

@@ -8,13 +8,16 @@ Hornguard is a sandbox. A bypass in it is a vulnerability in every deployment
 that trusts it, so please do not open a public issue for one.
 
 Report privately through GitHub's private vulnerability reporting on this
-repository (Security → Report a vulnerability). Include the exact text of the
-goal or clause, the profiles and backend in force, the engine and version, and
-what you observed. A fixture in the format described in `fixtures/README.md` is
-the most useful form a report can take.
+repository (Security → Report a vulnerability). Reports are received and
+coordinated by DataGrout, which maintains Hornguard and runs it in production;
+a confirmed bypass is fixed in that deployment before the fix and its
+regression fixture are published here. Include the exact text of the goal or
+clause, the profiles and backend in force, the engine and version, and what you
+observed. A fixture in the format described in `fixtures/README.md` is the most
+useful form a report can take.
 
-We acknowledge reports within three business days and aim to ship a fix and a
-regression fixture before any public disclosure, coordinated with the reporter.
+We acknowledge reports within three business days and coordinate disclosure
+with the reporter.
 
 ## What counts
 
