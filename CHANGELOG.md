@@ -1,0 +1,19 @@
+# Changelog
+
+## Unreleased
+
+- Generated-term properties: `test/test_generated.pl` builds 400 seeded goals from pure, pinned, meta and control vocabulary and checks that a pinned goal in call position is always refused, a clean term never is, a pinned functor in data position is admitted, refusal is monotonic under profile subsets, the judge never binds its input, verdicts are deterministic, the swi backend agrees with iso on refusals, and a goal and the same goal as a clause body refuse under the same class.
+- Mutation harness: `tools/mutate.py` disables one walker rule at a time (18 mutants) and requires every mutant to fail the suite. Its first run found one blind spot, the fail-closed meta-gap rule, now covered; head-shadowing and trust-spec coverage widened.
+- Policy files: hornguard_load_policy/1 reads backend, profiles, options, host allows, trust declarations and unpins from a file of facts; hornguard_admit/2, hornguard_admit_clause/2 and hornguard_admit_program/2 judge under the loaded policy. Unpinning is logged at every load and undone by the next policy; load errors leave the previous policy in force.
+- Regressions from a production host's SWI meta-predicate and Scryer sandbox suites ported as fixtures (`004_host_regressions.pl`), with the deliberate divergences marked: reflection stays pinned, `run(G) :- call(G)` is refused statically.
+- `defer_unknown(Bool)` option: an indicator the engine does not define is reported as `predicate(Indicator)` in `admit_needs` instead of refused, so a rule may be stored before the rules it calls. Needs are now self-describing: `profile(Name)` or `predicate(Indicator)`.
+- Engine profiles: `swi`, `swi_lists`, `swi_apply`, `swi_aggregate`, `swi_solution_sequences`, `swi_strings`, `swi_pairs`, `swi_ordsets`, `swi_assoc`, `swi_terms`, `swi_error`, generated from the engine by `tools/gen_swi_profiles.pl` with meta specs derived from `meta_predicate` declarations. New pins: `timing` class (`sleep`), `at_halt`, `cancel_halt`, `thread_self`, `statistics`, module reflection, attribute deletion, `nb_current`, `writeln` and the remaining output family.
+- Sandbox differential: `tools/differential.pl` judges every engine predicate with Hornguard and with SWI's `library(sandbox)`; `test/test_differential.pl` fails on any unexplained disagreement or a stale generated profile. First run: 702 predicates, zero.
+- Fix: a partially bound Verdict argument now fails instead of leaking the internal refusal exception.
+- Judge hardening: cyclic terms are refused before the walk (the walk did not terminate on them), stack exhaustion on pathologically deep terms becomes a refusal instead of an engine error, and the judged copy is stripped of attributes so a coroutine on the caller's term cannot fire inside the judge. New class `evasion`, rules `cyclic_term` and `term_depth`.
+- Floundering check: hornguard_floundering/2 reports negated goals that introduce a variable used after them; refused under `semantics` when `strict_negation(true)` (the default), skipped under `strict_negation(false)`.
+- Program admission and stratification: hornguard_admit_program/4,5 judges a clause set with its own heads admitted in bodies and refuses unstratified programs under the new `semantics` class; hornguard_stratification/2 returns strata or the offending cycle. Aggregation is stratified like negation.
+- prologue profile admits not/1 with the same meta shape as \\+/1.
+- Judge extracted into the pack: hornguard_admit/4,5 and hornguard_admit_clause/4,5 over loaded profiles and pinned classes; fixture runner and clause fixtures.
+- Repository scaffold: architecture notes, pack skeleton, seed profiles (`iso`,
+  `prologue`, pinned classes), fixture format and first verdict fixtures.

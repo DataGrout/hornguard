@@ -1,0 +1,6 @@
+target/
+_build/
+*.qlf
+*.swp
+.DS_Store
+node_modules/
