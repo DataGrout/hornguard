@@ -1,8 +1,12 @@
 SWIPL ?= swipl
 
-.PHONY: test test-fixtures test-policy test-generated test-differential check differential gen-profiles mutation
+.PHONY: test test-fixtures test-policy test-generated test-worker test-differential check differential gen-profiles mutation worker
 
-test: test-fixtures test-policy test-generated test-differential
+test: test-fixtures test-policy test-generated test-worker test-differential
+
+## The judge worker: reader fixtures in-process, protocol tests against a spawned worker.
+test-worker:
+	$(SWIPL) -q -g run_tests -t halt test/test_worker.pl
 
 ## Seeded random goals and clauses; properties every generated term must satisfy.
 test-generated:
@@ -30,6 +34,10 @@ differential:
 ## Regenerate profiles/swi.pl from the engine. Review the diff before committing.
 gen-profiles:
 	$(SWIPL) -q -g gen_swi_profiles -t halt tools/gen_swi_profiles.pl
+
+## Run the judge worker on stdin/stdout.
+worker:
+	$(SWIPL) -q prolog/hornguard_worker_main.pl
 
 ## Load every Prolog file once so syntax errors surface without the suite.
 check:

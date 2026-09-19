@@ -131,12 +131,24 @@ An `allow` of a pinned indicator, a trust spec whose arity does not match, an
 unknown profile or option, or an unrecognised term is a load error, and the
 previous policy stays in force.
 
+**From any language.** The judge worker runs the pack in its own process and
+speaks one JSON object per line over stdin and stdout. It reads author text
+under the backend's reader flags, refuses reader-level hazards, and hands back
+admitted terms in canonical form with the author's variable names intact, so
+the engine never parses author text:
+
+```
+$ make worker
+{"hello":"hornguard","protocol":1,"engine":"swi","version":"9.2.9","profiles":[...]}
+{"id":1,"op":"judge_goal","text":"findall(X, member(X,[a,b]), L)","profiles":["iso","prologue"]}
+{"id":1,"verdict":"admit","canonical":"findall(X,member(X,[a,b]),L)"}
+```
+
 **What Hornguard does not do yet.** It judges admission and nothing else. Time
-and inference caps, module isolation, the uncatchable abort, rewrites, event
-emission and the judge worker that canonicalises author text before the engine
-ever sees it are designed and not built. Until they are, run the judge in a position
-the author's code cannot reach and enforce with your engine's own tools. See
-[docs/architecture.md](docs/architecture.md).
+and inference caps, module isolation, the uncatchable abort, rewrites and event
+emission are designed and not built. Until they are, run the judge in a position
+the author's code cannot reach (the worker) and enforce with your engine's own
+tools. See [docs/architecture.md](docs/architecture.md).
 
 ## Beyond the judge
 
@@ -180,6 +192,7 @@ adversarial by construction and all of it runs under `make test`:
 | Generated terms | hundreds of seeded goals against invariants: pinned in call position is always refused, clean terms never are, refusal is monotonic under profile subsets, the input is never bound |
 | Sandbox differential | every predicate the engine defines, judged by Hornguard and by SWI's `library(sandbox)`; any admit that sandbox refuses, or any unexplained refusal, fails |
 | Mutation | one rule of the walk disabled at a time; every mutant must fail the suite |
+| Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
 
 The public suite is the structural contract, not the whole picture; see
 "Beyond the judge" for what stays private and why. Security reports:

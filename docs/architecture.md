@@ -259,6 +259,32 @@ under `false` the host may call the predicate and warn.
 The order of judgment is capability, then floundering, then stratification, so
 a capability refusal is never masked by a semantics one.
 
+## The judge worker
+
+`prolog/hornguard_worker.pl` is the pack in its own process, started with
+`swipl prolog/hornguard_worker_main.pl` (or `make worker`). A host of any
+language spawns it and exchanges one JSON object per line over stdin and
+stdout. This is trusted-position judging for hosts that are not Prolog and for
+engines with no in-engine protections: the judge runs where the author's code
+cannot reach it, and the same worker can serve a Scryer or Trealla engine.
+
+The worker reads author text itself, under the backend's reader flags and with
+the standard operator table, so the untrusted engine never parses author text.
+Syntax errors, quasi-quotations, oversized input and extra terms are refused
+under `evasion` with a `reader(_)` rule. An admitted term comes back in
+canonical form: every compound in functional notation, atoms quoted where
+needed, the author's variable names preserved so bindings can be mapped back,
+anonymous variables as `_`. Only the canonical form should cross to the
+engine. Reader-agreement fixtures (`fixtures/reader/`) require that canonical
+form to be a fixed point and to match the engine's own reader on the same text.
+
+Requests: `judge_goal`, `judge_clause`, `judge_program` with `text` and optional
+`backend`, `profiles` and `options` (`strict_negation`, `defer_unknown`,
+`allow`, `trust`); `load_policy`, `load_profiles`, `profiles`, `ping`. Every
+request carries an `id` that the response echoes. The handshake line names the
+protocol version, engine and loaded profiles. The worker is sequential; hosts
+wanting parallelism run several.
+
 ## Testing
 
 Fixtures are the contract every implementation of the judge must satisfy.
@@ -281,6 +307,9 @@ Fixtures are the contract every implementation of the judge must satisfy.
   development branch is how a changed builtin gets months of notice.
 - **Mutation** (`tools/mutate.py`): one rule of the walk disabled at a time in a
   copy of the judge; every mutant must fail the suite.
+- **Worker** (`test/test_worker.pl`): reader fixtures in-process, and protocol
+  tests against a spawned worker, including malformed input that must not
+  kill it.
 
 ## API
 
@@ -304,11 +333,8 @@ Options: `allow(Indicators)`, `trust(IndicatorSpecPairs)`,
 
 ## Not yet built
 
-- The judge worker: the pack in its own process, speaking a line protocol,
-  reading author text with the target backend's reader flags and emitting
-  canonical form so the untrusted engine never parses author text. This is
-  the near-term path to trusted-position judging for any host; a Rust core is
-  deferred until a host needs the judge in-process (see `crates/README.md`).
+- Backends other than `iso` and `swi`; the Rust core is deferred until a host
+  needs the judge in-process (see `crates/README.md`).
 - Enforcement: caps, isolation, the uncatchable abort, `library(sandbox)` as an
   in-engine second opinion. `hornguard_run/4` throws `not_implemented`.
 - Rewrites (`hornguard_rewrite/3`): the `catch/3` wrapper for backends whose
