@@ -19,8 +19,10 @@ floundering(fl_used_after,
     (bad(X) :- \+ parent(Y, X), older(Y, X)), [\+ parent(Y, X)]).
 floundering(fl_not_used_after,
     (bad(X) :- not(parent(Y, X)), older(Y, X)), [not(parent(Y, X))]).
+%% Two negations sharing a variable that nothing positive uses are two
+%% independent existentials: fine.
 floundering(fl_two_negations_share,
-    (bad :- \+ q(X), \+ r(X)), [\+ q(X)]).
+    (ok :- \+ q(X), \+ r(X)), []).
 floundering(fl_both_reported,
     (bad :- \+ q(X), \+ r(Y), s(X), t(Y)), [\+ q(X), \+ r(Y)]).
 
@@ -63,3 +65,22 @@ verdict(fl_query_existential_admit,   iso, [iso, prologue],
 program_verdict(fl_before_strata,     iso, [iso],
     [ (p(X) :- \+ q(Y), r(X, Y)), (r(_, _) :- \+ p(_)), q(1) ],
     refused(semantics, floundering(\+ q(_)))).
+
+%% A later occurrence inside another negation or inside an aggregation's
+%% goal is a fresh local scope, not a use of the negated goal's variable.
+%% Found by judging a production puzzle solver: the same name for a local
+%% in two consecutive \+ and a forall is ordinary Prolog.
+floundering(fl_later_local_scopes_not_uses,
+    (possible(A, B, C, D, E) :-
+        cell(A, B, C, 0),
+        between(1, E, D),
+        \+ ( between(1, E, F), F \== C, cell(A, B, F, D) ),
+        \+ ( between(1, E, G), G \== B, cell(A, G, C, D) ),
+        forall(greater(B, C, G, F), ( cell(A, G, F, H), ( H == 0 ; D > H ) ))),
+    []).
+floundering(fl_later_positive_use_still_flagged,
+    (bad(A) :- \+ p(F, A), \+ q(F), r(F)),
+    [\+ p(F, A), \+ q(F)]).
+floundering(fl_aggregate_result_is_a_use,
+    (bad(L) :- \+ p(X), findall(Y, q(X, Y), L)),
+    []).

@@ -841,7 +841,7 @@ hg_flounder_scan([pos(G)|Rest], Bound0, Acc, Goals) :-
     hg_flounder_scan(Rest, Bound, Acc, Goals).
 hg_flounder_scan([neg(G)|Rest], Bound, Acc, Goals) :-
     term_variables(G, Vs),
-    term_variables(Rest, Later),
+    hg_later_uses(Rest, Later),
     (   member(V, Vs),
         \+ hg_var_memberchk(V, Bound),
         hg_var_memberchk(V, Later)
@@ -849,6 +849,18 @@ hg_flounder_scan([neg(G)|Rest], Bound, Acc, Goals) :-
     ;   Acc1 = Acc
     ),
     hg_flounder_scan(Rest, Bound, Acc1, Goals).
+
+%   A later occurrence counts as a use only where the variable is expected
+%   bound: a plain positive goal. Inside a later negation, or inside the
+%   template and goal of an aggregation, the same variable name is a fresh
+%   local scope and an unbound value there is the intended meaning.
+hg_later_uses(Entries, Uses) :-
+    foldl(hg_entry_uses, Entries, [], Uses).
+
+hg_entry_uses(neg(_), Acc, Acc).
+hg_entry_uses(pos(G), Acc, Uses) :-
+    hg_binding_vars(G, Vs),
+    append(Vs, Acc, Uses).
 
 %   Which variables a positive goal may leave bound. Aggregation binds its
 %   result only; everything else is assumed to bind all its variables.

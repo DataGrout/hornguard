@@ -31,6 +31,8 @@
 :- use_module(library(terms)).
 :- use_module(library(error)).
 :- use_module(library(dif)).
+:- use_module(library(random)).
+:- use_module(library(backcomp)).
 :- use_module('../prolog/hornguard').
 
 source_profile(system,             swi).
@@ -46,6 +48,8 @@ source_profile(assoc,              swi_assoc).
 source_profile(occurs,             swi_terms).
 source_profile(terms,              swi_terms).
 source_profile(error,              swi_error).
+source_profile(random,             swi_random).
+source_profile(backward_compatibility, swi_backcomp).
 
 %   exclude(Indicator, Reason). Sandbox-safe predicates that stay out.
 exclude('<meta-call>'/1,           internal).

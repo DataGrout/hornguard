@@ -305,3 +305,51 @@ allow(swi_error, resource_error/1).
 allow(swi_error, syntax_error/1).
 allow(swi_error, type_error/2).
 allow(swi_error, uninstantiation_error/1).
+
+%% swi_random (from random)
+allow(swi_random, maybe/0).
+allow(swi_random, maybe/1).
+allow(swi_random, maybe/2).
+allow(swi_random, random/1).
+allow(swi_random, random/3).
+allow(swi_random, random_between/3).
+allow(swi_random, random_member/2).
+allow(swi_random, random_numlist/4).
+allow(swi_random, random_perm2/4).
+allow(swi_random, random_permutation/2).
+allow(swi_random, random_select/3).
+allow(swi_random, random_subseq/3).
+allow(swi_random, randseq/3).
+allow(swi_random, randset/3).
+
+%% swi_backcomp (from backward_compatibility)
+allow(swi_backcomp, 'C'/3).
+allow(swi_backcomp, call_cleanup/3).
+allow(swi_backcomp, checklist/2).
+allow(swi_backcomp, concat/3).
+allow(swi_backcomp, concat_atom/2).
+allow(swi_backcomp, concat_atom/3).
+allow(swi_backcomp, convert_time/2).
+allow(swi_backcomp, convert_time/8).
+allow(swi_backcomp, eval_license/0).
+allow(swi_backcomp, feature/2).
+allow(swi_backcomp, free_variables/2).
+allow(swi_backcomp, hash/1).
+allow(swi_backcomp, hash_term/2).
+allow(swi_backcomp, index/1).
+allow(swi_backcomp, merge/3).
+allow(swi_backcomp, merge_set/3).
+allow(swi_backcomp, proper_list/1).
+allow(swi_backcomp, setup_and_call_cleanup/3).
+allow(swi_backcomp, setup_and_call_cleanup/4).
+allow(swi_backcomp, string_to_atom/2).
+allow(swi_backcomp, string_to_list/2).
+allow(swi_backcomp, sublist/3).
+allow(swi_backcomp, substring/4).
+allow(swi_backcomp, sumlist/2).
+allow(swi_backcomp, write_ln/1).
+meta_spec(swi_backcomp, call_cleanup(0,?,0)).
+meta_spec(swi_backcomp, checklist(1,?)).
+meta_spec(swi_backcomp, setup_and_call_cleanup(0,0,0)).
+meta_spec(swi_backcomp, setup_and_call_cleanup(0,0,?,0)).
+meta_spec(swi_backcomp, sublist(1,?,?)).

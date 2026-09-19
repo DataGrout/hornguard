@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Floundering: a later occurrence inside another negation or inside an aggregation goal is a fresh local scope, not a use; found by judging a production puzzle solver that reused a local name across two negations and a forall.
+- Profiles `swi_random` and `swi_backcomp` (library(random), library(backcomp) as module backward_compatibility).
 - The Rust core is deferred: a judge worker running the pack in its own process with canonical re-emission covers trusted-position judging and parser differentials for any host; `crates/README.md` records the reasoning and the signals that would revive it.
 - README: "Beyond the judge" describes the layers a real deployment needs above admission and where the library came from; SECURITY.md names who receives reports.
 - hornguard_load_profiles/1 accepts a list of directories so a host installs its own profiles beside the shipped ones; the pin check runs over the union.

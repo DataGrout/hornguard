@@ -36,6 +36,8 @@
 :- use_module(library(occurs)).
 :- use_module(library(terms)).
 :- use_module(library(dif)).
+:- use_module(library(random)).
+:- use_module(library(backcomp)).
 :- use_module('../prolog/hornguard').
 
 library_module(lists).
@@ -51,6 +53,8 @@ library_module(occurs).
 library_module(terms).
 library_module(error).
 library_module(dif).
+library_module(random).
+library_module(backward_compatibility).
 
 %!  all_profiles(-Profiles) is det.
 %
