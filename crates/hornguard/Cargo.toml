@@ -1,0 +1,19 @@
+[package]
+name = "hornguard"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "A default-deny firewall for untrusted Prolog: judge goals and clauses before an engine runs them"
+documentation = "https://docs.rs/hornguard"
+repository = "https://github.com/DataGrout/hornguard"
+license = "Apache-2.0"
+keywords = ["prolog", "sandbox", "security", "logic-programming", "firewall"]
+categories = ["api-bindings", "development-tools"]
+readme = "README.md"
+exclude = ["tests/"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]

@@ -1,8 +1,9 @@
 SWIPL ?= swipl
+CARGO ?= cargo
 
-.PHONY: test test-fixtures test-policy test-generated test-worker test-differential check differential gen-profiles mutation worker
+.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-crate check differential gen-profiles mutation worker
 
-test: test-fixtures test-policy test-generated test-worker test-differential
+test: test-fixtures test-policy test-generated test-worker test-differential test-crate
 
 ## The judge worker: reader fixtures in-process, protocol tests against a spawned worker.
 test-worker:
@@ -26,6 +27,12 @@ test-differential:
 ## Disable one walker rule at a time; every mutant must fail the suite.
 mutation:
 	python3 tools/mutate.py
+
+## The Rust client: fmt, clippy, and integration tests against a real worker.
+test-crate:
+	cd crates/hornguard && $(CARGO) fmt --check
+	cd crates/hornguard && $(CARGO) clippy --all-targets -- -D warnings
+	cd crates/hornguard && $(CARGO) test
 
 ## Print the full differential report.
 differential:

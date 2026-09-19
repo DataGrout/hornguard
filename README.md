@@ -131,6 +131,19 @@ An `allow` of a pinned indicator, a trust spec whose arity does not match, an
 unknown profile or option, or an unrecognised term is a load error, and the
 previous policy stays in force.
 
+**From Rust.** The [`hornguard` crate](crates/hornguard) is a thin client of
+the worker: it spawns the process, checks the protocol version, and gives you
+a typed verdict.
+
+```rust
+let mut hg = Hornguard::builder().profiles(["iso", "prologue"]).spawn()?;
+match hg.judge_goal("findall(X, member(X, [a, b]), L)")? {
+    Verdict::Admit { canonical } => run(&canonical),   // never the author's text
+    Verdict::AdmitNeeds { needs, .. } => ...,
+    Verdict::Refused { class, rule, .. } => ...,
+}
+```
+
 **From any language.** The judge worker runs the pack in its own process and
 speaks one JSON object per line over stdin and stdout. It reads author text
 under the backend's reader flags, refuses reader-level hazards, and hands back
@@ -193,6 +206,7 @@ adversarial by construction and all of it runs under `make test`:
 | Sandbox differential | every predicate the engine defines, judged by Hornguard and by SWI's `library(sandbox)`; any admit that sandbox refuses, or any unexplained refusal, fails |
 | Mutation | one rule of the walk disabled at a time; every mutant must fail the suite |
 | Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
+| Rust client | 18 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |
 
 The public suite is the structural contract, not the whole picture; see
 "Beyond the judge" for what stays private and why. Security reports:
@@ -208,7 +222,7 @@ The public suite is the structural contract, not the whole picture; see
 | `fixtures/verdicts/` | Conformance fixtures |
 | `test/` | plunit suites |
 | `tools/` | Profile generator, sandbox differential, mutation harness (`make gen-profiles`, `make differential`, `make mutation`) |
-| `crates/` | Reserved for a Rust core; deferred, with the reasoning inside |
+| `crates/hornguard` | The Rust client: spawns a judge worker and returns typed verdicts |
 
 ## License
 

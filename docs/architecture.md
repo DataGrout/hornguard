@@ -278,6 +278,12 @@ anonymous variables as `_`. Only the canonical form should cross to the
 engine. Reader-agreement fixtures (`fixtures/reader/`) require that canonical
 form to be a fixed point and to match the engine's own reader on the same text.
 
+Clients are thin: they spawn a worker, check the protocol version the
+handshake announces, and map responses to their own types. The Rust client in
+`crates/hornguard` is the reference. A client judges and never executes: an
+`execute` helper would turn a linter into a starter kit for a host that has
+not thought about isolation or caps.
+
 Requests: `judge_goal`, `judge_clause`, `judge_program` with `text` and optional
 `backend`, `profiles` and `options` (`strict_negation`, `defer_unknown`,
 `allow`, `trust`); `load_policy`, `load_profiles`, `profiles`, `ping`. Every
@@ -333,8 +339,9 @@ Options: `allow(Indicators)`, `trust(IndicatorSpecPairs)`,
 
 ## Not yet built
 
-- Backends other than `iso` and `swi`; the Rust core is deferred until a host
-  needs the judge in-process (see `crates/README.md`).
+- Backends other than `iso` and `swi`. A Rust *port* of the judge stays
+  deferred: `crates/hornguard` is a client of the worker, not a second
+  implementation (see `crates/README.md`).
 - Enforcement: caps, isolation, the uncatchable abort, `library(sandbox)` as an
   in-engine second opinion. `hornguard_run/4` throws `not_implemented`.
 - Rewrites (`hornguard_rewrite/3`): the `catch/3` wrapper for backends whose

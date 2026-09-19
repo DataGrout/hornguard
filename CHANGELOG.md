@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Rust client (`crates/hornguard`): spawns a judge worker, checks the protocol version at the handshake, and returns a typed `Verdict` with `Class`, rule, depth and the canonical form. Locates the pack by builder path, `HORNGUARD_HOME`, or asking `swipl`. Judges only: no way to execute Prolog, by design.
 - Judge worker: `prolog/hornguard_worker.pl` with entry `hornguard_worker_main.pl`, JSON-lines over stdio (`judge_goal`, `judge_clause`, `judge_program`, `load_policy`, `load_profiles`, `profiles`, `ping`). Reads author text under the backend's reader flags with the standard operator table, refuses syntax errors, quasi-quotations, oversized input and extra terms as `evasion/reader(_)`, and returns canonical operator-free text with the author's variable names preserved. Reader-agreement fixtures in `fixtures/reader/`.
 - Floundering: a later occurrence inside another negation or inside an aggregation goal is a fresh local scope, not a use; found by judging a production puzzle solver that reused a local name across two negations and a forall.
 - Profiles `swi_random` and `swi_backcomp` (library(random), library(backcomp) as module backward_compatibility).

@@ -1,8 +1,10 @@
 # crates/
 
-Reserved for a Rust implementation of the judge and reader. Deferred, on
-purpose, and this note says why so the decision can be revisited with the
-same facts.
+`hornguard/` is the Rust **client**: it spawns a judge worker and returns
+typed verdicts. It is not a second implementation of the judge.
+
+A Rust **port** of the judge and reader is deferred, on purpose, and this note
+says why so the decision can be revisited with the same facts.
 
 ## What a Rust core was meant to buy
 
@@ -38,9 +40,10 @@ path that needs no second implementation:
   browser and at the edge. A judge worker compiled that way covers the Wasm
   case for the price of a build step.
 
-That leaves goal 3 as the only thing a Rust core uniquely provides: in-process
-bindings for hosts that will not spawn a `swipl`. Nobody has asked for that
-yet.
+Goals 1, 2 and 4 are now met by the worker, and goal 3 is met for Rust by the
+client crate, which speaks the worker protocol. What a Rust *core* would
+uniquely add is judging in-process for a host that cannot spawn a `swipl` at
+all. Nobody has asked for that yet.
 
 ## When to build it
 
