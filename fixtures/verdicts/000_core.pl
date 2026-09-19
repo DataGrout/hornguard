@@ -69,3 +69,27 @@ verdict(core_naf_not,            iso, [iso, prologue], not(current_prolog_flag(h
         refused(escape_attempt, pinned(flags_ops) + depth(1))).
 verdict(core_naf_not_needs,      iso, [iso], not(atom(a)), admit_needs([profile(prologue)])).
 verdict(core_naf_not_pure,       iso, [iso, prologue], not(atom(a)), admit).
+
+%% Closure completion. A closure argument is not a goal as written: it is a
+%% goal missing its last N arguments, and the meta spec says how many. The
+%% judge completes it with fresh variables before judging, so a closure whose
+%% completed form is refused is refused. Without this rule the whole
+%% allowlist is bypassable by partial application.
+verdict(core_closure_1_completed,  iso, [iso, prologue], maplist(current_prolog_flag(home), [_]),
+        refused(escape_attempt, pinned(flags_ops) + depth(1))).
+verdict(core_closure_2_completed,  iso, [iso, prologue], foldl(current_prolog_flag, [home], 0, _),
+        refused(escape_attempt, pinned(flags_ops) + depth(1))).
+verdict(core_closure_include,      iso, [iso, prologue], include(current_prolog_flag, [home], _),
+        refused(escape_attempt, pinned(flags_ops) + depth(1))).
+verdict(core_closure_exclude,      iso, [iso, prologue], exclude(current_prolog_flag, [home], _),
+        refused(escape_attempt, pinned(flags_ops) + depth(1))).
+verdict(core_closure_bare_atom,    iso, [iso, prologue], maplist(halt, [_]),
+        refused(escape_attempt, pinned(process) + depth(1))).
+verdict(core_closure_pure_ok,      iso, [iso, prologue], maplist(atom_length(abc), [_]), admit).
+verdict(core_closure_unbound,      iso, [iso, prologue], maplist(_G, [a]),
+        refused(escape_attempt, unbound_goal)).
+
+%% The same rule through call/N, where the extra arguments are explicit.
+verdict(core_call_n_completed,     iso, [iso], call(current_prolog_flag, home, _),
+        refused(escape_attempt, pinned(flags_ops) + depth(1))).
+verdict(core_call_n_pure,          iso, [iso], call(atom_length, abc, _), admit).

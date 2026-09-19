@@ -22,14 +22,29 @@
    retractall(fixture_dir(_)),
    assertz(fixture_dir(Abs)).
 
+%   Extra fixture directories, colon-separated, from HORNGUARD_FIXTURES_EXTRA.
+%   A host keeps fixtures it does not publish — cases derived from its own
+%   incidents — in its own directory and runs the same suite over both. The
+%   public suite is the contract; an overlay only adds to it, and the
+%   mutation harness is what decides whether a case belongs in the contract:
+%   anything it needs to kill a mutant is structural and stays public.
+extra_dirs(Dirs) :-
+    (   getenv('HORNGUARD_FIXTURES_EXTRA', Spec)
+    ->  split_string(Spec, ":", "", Parts),
+        findall(D, ( member(P, Parts), P \== "", atom_string(D, P), exists_directory(D) ), Dirs)
+    ;   Dirs = []
+    ).
+
 load_fixtures :-
     retractall(fixture(_, _, _, _, _, _)),
     fixture_dir(Dir),
-    directory_files(Dir, Entries),
-    include([F]>>file_name_extension(_, pl, F), Entries, Files0),
-    msort(Files0, Files),
-    forall(member(F, Files),
-           ( directory_file_path(Dir, F, Path),
+    extra_dirs(Extra),
+    forall(( member(D, [Dir|Extra]),
+             directory_files(D, Es),
+             include([E]>>file_name_extension(_, pl, E), Es, Fs0),
+             msort(Fs0, Fs),
+             member(F, Fs) ),
+           ( directory_file_path(D, F, Path),
              load_fixture_file(Path) )).
 
 load_fixture_file(Path) :-
