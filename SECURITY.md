@@ -1,6 +1,9 @@
 # Security policy
 
-Draft. Response window and contact channel to be confirmed before first release.
+## Supported versions
+
+The latest release. Hornguard is pre-1.0: fixes land on the current version
+and there are no backports.
 
 ## Reporting
 
@@ -16,8 +19,14 @@ clause, the profiles and backend in force, the engine and version, and what you
 observed. A fixture in the format described in `fixtures/README.md` is the most
 useful form a report can take.
 
-We acknowledge reports within three business days and coordinate disclosure
-with the reporter.
+We acknowledge a report within three business days, tell the reporter within
+ten business days whether we have reproduced it, and aim to ship a fix within
+thirty days of that. Disclosure is coordinated with the reporter; if we cannot
+meet these, we say so rather than going quiet.
+
+A confirmed bypass is fixed in the maintainer's production deployment before
+the fix and its regression fixture are published here, because a public
+fixture describes a hole until the fix is live.
 
 ## What counts
 

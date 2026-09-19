@@ -208,9 +208,13 @@ adversarial by construction and all of it runs under `make test`:
 | Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
 | Rust client | 18 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |
 
-The public suite is the structural contract, not the whole picture; see
-"Beyond the judge" for what stays private and why. Security reports:
-[SECURITY.md](SECURITY.md).
+The public suite is the contract, and what belongs in it is decided by the
+mutation harness rather than by taste: any case needed to kill a mutant is
+structural and stays here. A host can run additional fixtures of its own —
+cases derived from its own incidents — by naming their directory in
+`HORNGUARD_FIXTURES_EXTRA`; they are added to the suite, never subtracted
+from it. The maintainer runs 53 such cases against this judge in addition to
+everything above. Security reports: [SECURITY.md](SECURITY.md).
 
 ## Layout
 
@@ -221,6 +225,7 @@ The public suite is the structural contract, not the whole picture; see
 | `profiles/` | `iso`, `prologue`, generated `swi*`, and the pinned class table |
 | `fixtures/verdicts/` | Conformance fixtures |
 | `test/` | plunit suites |
+| `RELEASING.md` | What is checked before a tag, and why |
 | `tools/` | Profile generator, sandbox differential, mutation harness (`make gen-profiles`, `make differential`, `make mutation`) |
 | `crates/hornguard` | The Rust client: spawns a judge worker and returns typed verdicts |
 

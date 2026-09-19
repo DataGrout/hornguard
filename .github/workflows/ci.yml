@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so a changed builtin in SWI's development branch surfaces here
+    # months before it reaches a stable release a host is running.
+    - cron: '0 6 * * 1'
+
+jobs:
+  suite:
+    name: suite (swi ${{ matrix.swi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        swi: [stable, devel]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SWI-Prolog (${{ matrix.swi }})
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common
+          sudo apt-add-repository -y ppa:swi-prolog/${{ matrix.swi }}
+          sudo apt-get update
+          sudo apt-get install -y swi-prolog-nox
+          swipl --version
+
+      - name: Install Scryer Prolog
+        run: cargo install scryer-prolog --locked
+
+      - name: Build Trealla
+        run: |
+          git clone --depth 1 https://github.com/trealla-prolog/trealla.git /tmp/trealla
+          sudo apt-get install -y libreadline-dev
+          make -C /tmp/trealla -j"$(nproc)" NOFFI=1 NOSSL=1
+          sudo install /tmp/trealla/tpl /usr/local/bin/tpl
+          tpl --version
+
+      - name: Fixtures, policy, generated terms, worker
+        run: |
+          make test-fixtures
+          make test-policy
+          make test-generated
+          make test-worker
+
+      # The differential compares Hornguard with the engine's own
+      # library(sandbox). On the development branch a disagreement means a
+      # builtin changed character, which is exactly what this job is for.
+      - name: Sandbox differential
+        run: make test-differential
+
+      # The committed profiles and manifests are generated against the stable
+      # engine. On devel a difference means the engine changed, which the
+      # differential above already reports; requiring a match there would turn
+      # every benign addition into a red build.
+      - name: Generated profiles and manifests are current
+        if: matrix.swi == 'stable'
+        run: |
+          make gen-profiles
+          make manifests
+          git diff --exit-code -- profiles/ \
+            || (echo "a generated profile or manifest is stale; run make gen-profiles && make manifests" && exit 1)
+
+  mutation:
+    name: mutation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SWI-Prolog
+        run: |
+          sudo apt-get update
+          sudo apt-add-repository -y ppa:swi-prolog/stable
+          sudo apt-get install -y swi-prolog-nox
+      # Every disabled rule of the walk must fail the suite. A surviving
+      # mutant means a rule no fixture exercises.
+      - run: make mutation
+
+  crate:
+    name: rust client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SWI-Prolog
+        run: |
+          sudo apt-get update
+          sudo apt-add-repository -y ppa:swi-prolog/stable
+          sudo apt-get install -y swi-prolog-nox
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: make test-crate
