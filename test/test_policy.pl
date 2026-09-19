@@ -95,6 +95,60 @@ test(private_profile_cannot_reopen_a_pin, [throws(error(permission_error(allow, 
 
 :- end_tests(profile_dirs).
 
+:- begin_tests(backends).
+
+test(every_shipped_backend_declares_enforcement, [true(Missing == [])]) :-
+    hornguard_profiles(_),
+    findall(B, ( member(B, [iso, swi, scryer, trealla]),
+                 \+ hornguard:hg_enforcement(B, _) ), Missing).
+
+test(iso_is_judge_only, [true(K == none)]) :- hornguard:hg_enforcement(iso, K).
+test(swi_enforces_natively, [true(K == native)]) :- hornguard:hg_enforcement(swi, K).
+test(manifest_backends_need_an_external_bound, [true(Ks == [external, external])]) :-
+    findall(K, ( member(B, [scryer, trealla]), hornguard:hg_enforcement(B, K) ), Ks).
+
+test(run_refuses_on_a_judge_only_backend,
+     [throws(error(permission_error(run, backend, iso), _))]) :-
+    hornguard_run(iso, [iso], [], true).
+
+test(run_refuses_where_the_host_must_bound_the_engine,
+     [throws(error(permission_error(run, backend, scryer), _))]) :-
+    hornguard_run(scryer, [iso], [], true).
+
+%   The manifests record what these engines really expose in a bare
+%   interpreter. A smaller builtin list is a smaller attack surface, not a
+%   sandbox: Scryer has the clause store, the loader, reflection and halt.
+test(scryer_exposes_capabilities_the_pins_refuse, [true(Missing == [])]) :-
+    hornguard_profiles(_),
+    findall(I, ( member(I, [assertz/1, retract/1, use_module/1, consult/1, halt/0,
+                            clause/2, current_prolog_flag/2, set_prolog_flag/2, op/3]),
+                 \+ hornguard:hg_engine(scryer, I) ), Missing).
+
+%   shell/1 is NOT in the bare manifest: on Scryer it arrives with
+%   library(os). That is exactly why `loading` is pinned. The manifest
+%   describes the engine as started, and a host that lets an author load a
+%   library has widened the engine, not the profile.
+test(the_loader_is_what_closes_the_chain_to_shell, [true(( NoShell == true, Loading == true ))]) :-
+    hornguard_profiles(_),
+    ( hornguard:hg_engine(scryer, shell/1) -> NoShell = false ; NoShell = true ),
+    ( hornguard:hg_pinned(loading, use_module/1) -> Loading = true ; Loading = false ).
+
+%   Pins are by name and apply whatever the manifest says, so a capability an
+%   engine gains from a library is still refused if it is ever reached.
+test(a_pin_does_not_depend_on_the_manifest,
+     [true(V = refused(_, capability_probe, pinned(process)))]) :-
+    hornguard_admit(scryer, [iso], shell(x), V).
+
+test(a_manifest_makes_an_unknown_a_permission_error_not_an_existence_error,
+     [true(( S = permission_error(_, _, _), T = existence_error(_, _) ))]) :-
+    % shell/1 is pinned, so take something the engine has that no profile
+    % allows: the manifest is what tells the two apart.
+    hornguard_admit(scryer, [iso], succ_throw_marker, refused(T, _, unknown)),
+    hornguard_admit(scryer, [iso], '$skip_max_list'(_, _, _, _), refused(S0, _, _)),
+    ( hornguard:hg_engine(scryer, '$skip_max_list'/4) -> S = S0 ; S = permission_error(x, y, z) ).
+
+:- end_tests(backends).
+
 :- begin_tests(policy_unpin, [cleanup(load(host))]).
 
 test(unpin_warns_and_admits, [true(V == admit)]) :-

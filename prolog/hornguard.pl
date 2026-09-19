@@ -81,6 +81,8 @@ implemented; they belong to the backend layer, not the judge.
 :- dynamic hg_allow/2,          % Profile, Name/Arity
            hg_meta/2,           % Profile, Spec (meta_predicate notation)
            hg_pinned/2,         % Class, Name/Arity (Arity may be unbound)
+           hg_engine/2,         % Backend, Name/Arity   (what the engine defines)
+           hg_enforcement/2,    % Backend, native | external | none
            hg_loaded_dir/1,
            hg_default_dir/1.
 
@@ -103,8 +105,10 @@ implemented; they belong to the backend layer, not the judge.
 %   library's: the shipped profiles and the host's load into one table,
 %   and the policy check runs over the union.
 %
-%   Accepted terms: allow(Profile, Name/Arity), meta_spec(Profile, Spec),
-%   pinned(Class, Name/Arity) and directives (ignored). Anything else is a
+%   The directory holds profiles and backend manifests. Accepted terms:
+%   allow(Profile, Name/Arity), meta_spec(Profile, Spec),
+%   pinned(Class, Name/Arity), engine(Backend, Name/Arity),
+%   enforcement(Backend, Kind) and directives (ignored). Anything else is a
 %   domain_error. An allow that names a pinned indicator is a load error:
 %   pinned classes are not reopened by profile.
 
@@ -114,6 +118,8 @@ hornguard_load_profiles(DirOrDirs) :-
     retractall(hg_allow(_, _)),
     retractall(hg_meta(_, _)),
     retractall(hg_pinned(_, _)),
+    retractall(hg_engine(_, _)),
+    retractall(hg_enforcement(_, _)),
     retractall(hg_loaded_dir(_)),
     forall(member(Dir, Dirs), hg_load_profile_dir(Dir)),
     hg_check_policy,
@@ -153,9 +159,26 @@ hg_accept_profile_term(meta_spec(P, Spec), _) :-
 hg_accept_profile_term(pinned(C, N/A), _) :-
     atom(C), atom(N), ( var(A) ; integer(A) ), !,
     assertz(hg_pinned(C, N/A)).
+hg_accept_profile_term(engine(B, N/A), _) :-
+    atom(B), atom(N), integer(A), !,
+    assertz(hg_engine(B, N/A)).
+hg_accept_profile_term(enforcement(B, Kind), _) :-
+    atom(B), hg_enforcement_kind(Kind), !,
+    assertz(hg_enforcement(B, Kind)).
 hg_accept_profile_term((:- _), _) :- !.
 hg_accept_profile_term(Term, Path) :-
     throw(error(domain_error(hornguard_profile_term, Term), context(Path, _))).
+
+%   What a backend can do about a running goal.
+%
+%     native    the engine gives the judge's host time, inference and stack
+%               caps, isolation, and an abort the author cannot catch
+%     external  the host must supply them from outside the engine (a process
+%               wrapper, a runtime), and must say so before running anything
+%     none      judge-only; the backend refuses to run
+hg_enforcement_kind(native).
+hg_enforcement_kind(external).
+hg_enforcement_kind(none).
 
 hg_check_policy :-
     forall(hg_allow(P, N/A),
@@ -942,6 +965,11 @@ hg_strata_edge(edge(H, C, Sign), S0-Ch0, S-Ch) :-
 %   be first-order and an unknown predicate is an existence error. The
 %   `swi` backend asks the engine.
 
+%   An allowed predicate the engine declares meta, with no spec from any
+%   profile in force, is refused rather than admitted with its goal arguments
+%   unjudged. Only a backend that can be asked supports this; a manifest
+%   records what exists, not what is meta, so on a manifest-driven backend
+%   the profiles' specs are the whole story and must be complete.
 hg_engine_meta_gap(ctx(swi, _, _, _, _), G) :-
     catch(predicate_property(G, meta_predicate(Spec)), _, fail),
     Spec =.. [_|Modes],
@@ -953,10 +981,19 @@ hg_goal_mode(K) :- integer(K), K > 0.
 hg_goal_mode(^).
 hg_goal_mode(//).
 
-hg_unknown_reason(ctx(swi, _, _, _, _), G, Ind, Reason) :-
-    catch(predicate_property(G, defined), _, fail), !,
+hg_unknown_reason(Ctx, G, Ind, Reason) :-
+    hg_engine_defines(Ctx, G, Ind), !,
     Reason = permission_error(execute, goal, Ind).
 hg_unknown_reason(_, _, Ind, existence_error(procedure, Ind)).
+
+%   Does the backend's engine define this? Asked directly on swi, read from
+%   the backend's manifest otherwise. A backend with no manifest knows
+%   nothing, so everything unrecognised is an existence error and
+%   defer_unknown defers it.
+hg_engine_defines(ctx(swi, _, _, _, _), G, _) :- !,
+    catch(predicate_property(G, defined), _, fail).
+hg_engine_defines(ctx(Backend, _, _, _, _), _, Ind) :-
+    hg_engine(Backend, Ind).
 
 
 		 /*******************************
@@ -966,5 +1003,23 @@ hg_unknown_reason(_, _, Ind, existence_error(procedure, Ind)).
 hornguard_rewrite(_Backend, _Term, _Guarded) :-
     throw(error(not_implemented(hornguard_rewrite/3), _)).
 
-hornguard_run(_Backend, _Profiles, _Caps, _Goal) :-
-    throw(error(not_implemented(hornguard_run/4), _)).
+%!  hornguard_run(+Backend, +Profiles, +Caps, +Goal)
+%
+%   Not yet implemented, and it refuses before it gets that far on any
+%   backend that cannot bound a running goal. A judge-only backend has no
+%   caps, no isolation and no uncatchable abort: admitting a goal there and
+%   running it anyway is the mistake this predicate exists to prevent.
+
+hornguard_run(Backend, _Profiles, _Caps, _Goal) :-
+    hg_ensure_profiles,
+    must_be(atom, Backend),
+    (   hg_enforcement(Backend, native)
+    ->  throw(error(not_implemented(hornguard_run/4), _))
+    ;   hg_enforcement(Backend, external)
+    ->  throw(error(permission_error(run, backend, Backend),
+                    context(hornguard_run/4,
+                            'this backend has no in-engine caps; the host must bound the engine from outside and run the goal itself')))
+    ;   throw(error(permission_error(run, backend, Backend),
+                    context(hornguard_run/4,
+                            'judge-only backend: it can say whether a goal is admissible, not run it safely')))
+    ).

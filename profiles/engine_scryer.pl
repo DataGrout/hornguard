@@ -1,0 +1,203 @@
+%% Engine manifest: what scryer defines.
+%%
+%% GENERATED on 2026-09-19 by running tools/engine_probe.pl inside scryer over the
+%% candidate list from tools/gen_engine_manifest.pl. Regenerate with
+%% `make manifests`.
+%%
+%% This records what EXISTS, never what is allowed. An indicator here
+%% that no profile allows is still refused; the manifest only changes the
+%% reason to a permission error and stops defer_unknown from deferring it.
+%%
+%% It describes the engine AS STARTED, with no libraries loaded. Libraries
+%% widen what exists: Scryer reaches shell/1 and the sockets through
+%% library(os) and library(sockets), which is why `loading` is pinned. A
+%% host that loads libraries into author space has widened the engine, and
+%% should regenerate this manifest with those libraries loaded.
+%%
+%% Capabilities this engine really exposes, all of them pinned:
+%%   abolish/1                    database
+%%   asserta/1                    database
+%%   assertz/1                    database
+%%   retract/1                    database
+%%   retractall/1                 database
+%%   current_prolog_flag/2        flags_ops
+%%   op/3                         flags_ops
+%%   set_prolog_flag/2            flags_ops
+%%   consult/1                    loading
+%%   use_module/1                 loading
+%%   use_module/2                 loading
+%%   halt/0                       process
+%%   halt/1                       process
+%%   clause/2                     reflection
+%%   current_module/1             reflection
+%%   current_op/3                 reflection
+%%   current_predicate/1          reflection
+%%   predicate_property/2         reflection
+%%   prolog_load_context/2        reflection
+%%   strip_module/3               reflection
+%%   close/1                      streams
+%%   close/2                      streams
+%%   current_input/1              streams
+%%   current_output/1             streams
+%%   flush_output/0               streams
+%%   flush_output/1               streams
+%%   get_byte/1                   streams
+%%   get_byte/2                   streams
+%%   get_char/1                   streams
+%%   get_char/2                   streams
+%%   nl/0                         streams
+%%   nl/1                         streams
+%%   open/3                       streams
+%%   open/4                       streams
+%%   peek_char/1                  streams
+%%   peek_char/2                  streams
+%%   put_byte/1                   streams
+%%   put_byte/2                   streams
+%%   put_char/1                   streams
+%%   put_char/2                   streams
+%%   read/1                       streams
+%%   read/2                       streams
+%%   read_term/2                  streams
+%%   read_term/3                  streams
+%%   stream_property/2            streams
+%%   write/1                      streams
+%%   write/2                      streams
+%%   write_canonical/1            streams
+%%   write_canonical/2            streams
+%%   write_term/2                 streams
+%%   write_term/3                 streams
+%%   writeq/1                     streams
+%%   writeq/2                     streams
+
+:- multifile engine/2.
+
+engine(scryer,!/0).
+engine(scryer,(',')/2).
+engine(scryer,(->)/2).
+engine(scryer,(;)/2).
+engine(scryer,(<)/2).
+engine(scryer,(=)/2).
+engine(scryer,(=..)/2).
+engine(scryer,(=:=)/2).
+engine(scryer,(=<)/2).
+engine(scryer,(==)/2).
+engine(scryer,(=\=)/2).
+engine(scryer,(>)/2).
+engine(scryer,(>=)/2).
+engine(scryer,(@<)/2).
+engine(scryer,(@=<)/2).
+engine(scryer,(@>)/2).
+engine(scryer,(@>=)/2).
+engine(scryer,(\+)/1).
+engine(scryer,(\=)/2).
+engine(scryer,(\==)/2).
+engine(scryer,abolish/1).
+engine(scryer,acyclic_term/1).
+engine(scryer,arg/3).
+engine(scryer,asserta/1).
+engine(scryer,assertz/1).
+engine(scryer,atom/1).
+engine(scryer,atom_chars/2).
+engine(scryer,atom_codes/2).
+engine(scryer,atom_concat/3).
+engine(scryer,atom_length/2).
+engine(scryer,atomic/1).
+engine(scryer,bagof/3).
+engine(scryer,call/1).
+engine(scryer,call/2).
+engine(scryer,call/3).
+engine(scryer,call/4).
+engine(scryer,call/5).
+engine(scryer,call/6).
+engine(scryer,call/7).
+engine(scryer,call/8).
+engine(scryer,callable/1).
+engine(scryer,catch/3).
+engine(scryer,char_code/2).
+engine(scryer,clause/2).
+engine(scryer,close/1).
+engine(scryer,close/2).
+engine(scryer,compare/3).
+engine(scryer,compound/1).
+engine(scryer,consult/1).
+engine(scryer,copy_term/2).
+engine(scryer,current_input/1).
+engine(scryer,current_module/1).
+engine(scryer,current_op/3).
+engine(scryer,current_output/1).
+engine(scryer,current_predicate/1).
+engine(scryer,current_prolog_flag/2).
+engine(scryer,fail/0).
+engine(scryer,false/0).
+engine(scryer,findall/3).
+engine(scryer,findall/4).
+engine(scryer,float/1).
+engine(scryer,flush_output/0).
+engine(scryer,flush_output/1).
+engine(scryer,functor/3).
+engine(scryer,get_byte/1).
+engine(scryer,get_byte/2).
+engine(scryer,get_char/1).
+engine(scryer,get_char/2).
+engine(scryer,ground/1).
+engine(scryer,halt/0).
+engine(scryer,halt/1).
+engine(scryer,integer/1).
+engine(scryer,(is)/2).
+engine(scryer,keysort/2).
+engine(scryer,nl/0).
+engine(scryer,nl/1).
+engine(scryer,nonvar/1).
+engine(scryer,number/1).
+engine(scryer,number_chars/2).
+engine(scryer,number_codes/2).
+engine(scryer,once/1).
+engine(scryer,op/3).
+engine(scryer,open/3).
+engine(scryer,open/4).
+engine(scryer,peek_char/1).
+engine(scryer,peek_char/2).
+engine(scryer,predicate_property/2).
+engine(scryer,prolog_load_context/2).
+engine(scryer,put_byte/1).
+engine(scryer,put_byte/2).
+engine(scryer,put_char/1).
+engine(scryer,put_char/2).
+engine(scryer,rational/1).
+engine(scryer,read/1).
+engine(scryer,read/2).
+engine(scryer,read_term/2).
+engine(scryer,read_term/3).
+engine(scryer,repeat/0).
+engine(scryer,retract/1).
+engine(scryer,retractall/1).
+engine(scryer,set_prolog_flag/2).
+engine(scryer,setof/3).
+engine(scryer,sort/2).
+engine(scryer,stream_property/2).
+engine(scryer,strip_module/3).
+engine(scryer,sub_atom/5).
+engine(scryer,subsumes_term/2).
+engine(scryer,term_variables/2).
+engine(scryer,throw/1).
+engine(scryer,true/0).
+engine(scryer,unify_with_occurs_check/2).
+engine(scryer,use_module/1).
+engine(scryer,use_module/2).
+engine(scryer,var/1).
+engine(scryer,variant/2).
+engine(scryer,write/1).
+engine(scryer,write/2).
+engine(scryer,write_canonical/1).
+engine(scryer,write_canonical/2).
+engine(scryer,write_term/2).
+engine(scryer,write_term/3).
+engine(scryer,writeq/1).
+engine(scryer,writeq/2).
+
+%% Enforcement: Scryer has no in-engine time, inference or stack caps, no
+%% protected static code, and no module isolation an author cannot see
+%% through. A host runs it under an external bound — a process wrapper that
+%% caps address space and kills on RSS or on the parent's exit — and attests
+%% that before running anything.
+enforcement(scryer, external).

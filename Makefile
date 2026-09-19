@@ -1,7 +1,7 @@
 SWIPL ?= swipl
 CARGO ?= cargo
 
-.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-crate check differential gen-profiles mutation worker
+.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-crate check differential gen-profiles manifests mutation worker
 
 test: test-fixtures test-policy test-generated test-worker test-differential test-crate
 
@@ -37,6 +37,18 @@ test-crate:
 ## Print the full differential report.
 differential:
 	$(SWIPL) -q -g "all_profiles(P), differential(P)" -t halt tools/differential.pl
+
+## Regenerate the engine manifests by running a probe inside each engine.
+## Needs scryer-prolog and tpl on PATH; skips an engine that is not there.
+manifests:
+	@for b in scryer trealla; do \
+	  exe=$$( [ $$b = scryer ] && echo scryer-prolog || echo tpl ); \
+	  if command -v $$exe >/dev/null 2>&1; then \
+	    $(SWIPL) -q -g "gen_probe($$b, '/tmp/hg_$$b.pl', '/tmp/hg_probe_$$b.pl')" -t halt tools/gen_engine_manifest.pl && \
+	    $$exe /tmp/hg_probe_$$b.pl && \
+	    $(SWIPL) -q -g "assemble($$b, '/tmp/hg_$$b.pl', 'profiles/engine_$$b.pl')" -t halt tools/gen_engine_manifest.pl; \
+	  else echo "skipping $$b: $$exe not on PATH"; fi; \
+	done
 
 ## Regenerate profiles/swi.pl from the engine. Review the diff before committing.
 gen-profiles:

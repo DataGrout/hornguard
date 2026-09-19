@@ -7,6 +7,7 @@
 :- use_module(library(plunit)).
 :- use_module(library(lists)).
 :- use_module(library(process)).
+:- use_module(library(readutil)).
 :- use_module(library(http/json)).
 :- use_module('../prolog/hornguard').
 :- use_module('../prolog/hornguard_worker').
@@ -74,6 +75,78 @@ test(engine_reader_agrees_on_swi, [ forall(( rfix(_, swi, Text, Exp), string(Exp
     terminated(Text, TT),
     term_string(T, TT, [double_quotes(string), variable_names(VN)]),
     hornguard_canonical(T, VN, C).
+
+%   Cross-engine agreement. The canonical form only earns its place if the
+%   target engine reads it into the term we meant: if it does not, handing
+%   the engine canonical text instead of the author's is a bug rather than a
+%   defence. Skipped when the engine is not installed.
+
+engine_binary(scryer, path('scryer-prolog')).
+engine_binary(trealla, path(tpl)).
+
+%   Checked inside the generator rather than as a plunit condition: a
+%   condition is evaluated once, before forall binds the backend, so it would
+%   pass for whichever engine happened to come first and then run the rest
+%   against an engine that is not there.
+engine_available(Backend) :-
+    engine_binary(Backend, path(Exe)),
+    catch(absolute_file_name(path(Exe), _, [access(execute), file_errors(fail)]), _, fail).
+
+%   Ask Engine to read the canonical text and write back what it read, in
+%   its own canonical form; read that here and compare terms up to variable
+%   renaming. Comparing terms rather than strings keeps engine-specific
+%   spacing and quoting out of the answer.
+%
+%   The text goes through a file rather than into the script, because
+%   embedding it would need per-engine quoting of exactly the characters
+%   under test. The script itself is then pure ISO and identical for every
+%   engine.
+engine_round_trip(Backend, Text, Term) :-
+    engine_binary(Backend, path(Exe)),
+    tmp_file(hg_in, In), tmp_file(hg_out, Out),
+    setup_call_cleanup(open(In, write, S0), format(S0, "~s .~n", [Text]), close(S0)),
+    tmp_file_stream(text, Script, S1),
+    format(S1, "main :- open(~q, read, I), read_term(I, T, []), close(I),~n", [In]),
+    format(S1, "        open(~q, write, O), write_canonical(O, T), write(O, '.'), nl(O),~n", [Out]),
+    format(S1, "        close(O), halt.~n:- initialization(main).~n", []),
+    close(S1),
+    process_create(path(Exe), [Script], [stdout(null), stderr(null), process(Pid)]),
+    process_wait(Pid, _),
+    catch(read_file_to_terms(Out, [Raw], []), _, fail),
+    iso_lists(Raw, Term),
+    forall(member(F, [In, Out, Script]), catch(delete_file(F), _, true)).
+
+%   SWI's list constructor is '[|]'; ISO's, and therefore Scryer's and
+%   Trealla's, is '.'. So an engine's write_canonical emits `'.'(a,[])` where
+%   SWI would emit `[a]`, and SWI reads that back as an ordinary compound
+%   rather than a list. That is a property of moving a term between the two
+%   writers, not a disagreement about what the engine read: the canonical
+%   form we send uses list notation, which every engine here reads correctly.
+%   Normalise it away so the comparison is about the term.
+%   Matched structurally rather than by pattern: '.'(H,T) written in SWI
+%   source is dict notation, not a compound.
+iso_lists(V, V) :- var(V), !.
+iso_lists(T, T) :- atomic(T), !.
+iso_lists(T0, T) :-
+    compound_name_arity(T0, '.', 2), !,
+    arg(1, T0, H0), arg(2, T0, Tl0),
+    iso_lists(H0, H), iso_lists(Tl0, Tl),
+    T = [H|Tl].
+iso_lists(T0, T) :-
+    T0 =.. [F|As0],
+    maplist(iso_lists, As0, As),
+    T =.. [F|As].
+
+test(engine_reads_our_canonical_form_as_the_same_term,
+     [ forall(( rfix(_, B, Text, Exp), string(Exp), memberchk(B, [scryer, trealla]),
+                engine_available(B) )),
+       true(Same == true) ]) :-
+    terminated(Exp, ExpT),
+    hornguard_read(B, ExpT, [Ours], _, ok),
+    (   engine_round_trip(B, Exp, Theirs)
+    ->  ( Ours =@= Theirs -> Same = true ; Same = Ours-Theirs )
+    ;   Same = could_not_run_engine
+    ).
 
 test(oversized_input_refused, [true(R == refused(reader(too_large)))]) :-
     length(L, 1_000_100), maplist(=(0'a), L), string_codes(S, L),
