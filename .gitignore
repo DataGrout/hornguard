@@ -4,3 +4,5 @@ _build/
 *.swp
 .DS_Store
 node_modules/
+.history-backup/
+private/
