@@ -95,28 +95,37 @@ implemented; they belong to the backend layer, not the judge.
 		 *           PROFILES           *
 		 *******************************/
 
-%!  hornguard_load_profiles(+Dir) is det.
+%!  hornguard_load_profiles(+DirOrDirs) is det.
 %
-%   Replace the loaded policy with every `.pl` profile file under Dir.
+%   Replace the loaded profiles with every `.pl` profile file under the
+%   given directory, or under each of a list of directories in order. A
+%   host installs its own profiles by naming its directory after the
+%   library's: the shipped profiles and the host's load into one table,
+%   and the policy check runs over the union.
+%
 %   Accepted terms: allow(Profile, Name/Arity), meta_spec(Profile, Spec),
 %   pinned(Class, Name/Arity) and directives (ignored). Anything else is a
 %   domain_error. An allow that names a pinned indicator is a load error:
 %   pinned classes are not reopened by profile.
 
-hornguard_load_profiles(Dir) :-
-    must_be(atom, Dir),
+hornguard_load_profiles(DirOrDirs) :-
+    (   is_list(DirOrDirs) -> Dirs = DirOrDirs ; Dirs = [DirOrDirs] ),
+    must_be(list(atom), Dirs),
     retractall(hg_allow(_, _)),
     retractall(hg_meta(_, _)),
     retractall(hg_pinned(_, _)),
     retractall(hg_loaded_dir(_)),
+    forall(member(Dir, Dirs), hg_load_profile_dir(Dir)),
+    hg_check_policy,
+    assertz(hg_loaded_dir(Dirs)).
+
+hg_load_profile_dir(Dir) :-
     directory_files(Dir, Entries),
     include(hg_profile_file, Entries, Files0),
     msort(Files0, Files),
     forall(member(F, Files),
            ( directory_file_path(Dir, F, Path),
-             hg_load_profile_file(Path) )),
-    hg_check_policy,
-    assertz(hg_loaded_dir(Dir)).
+             hg_load_profile_file(Path) )).
 
 hg_profile_file(F) :-
     file_name_extension(_, pl, F).

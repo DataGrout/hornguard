@@ -60,6 +60,41 @@ test(program_under_policy, [true(V == admit)]) :-
 
 :- end_tests(policy_file).
 
+% A host installs its own profiles beside the shipped ones by loading a list
+% of directories. The private directory here is created on the fly.
+:- begin_tests(profile_dirs, [cleanup(( hornguard:hg_default_dir(D), hornguard_load_profiles(D), load(host) ))]).
+
+private_dir(Dir) :-
+    tmp_file(hg_private_profiles, Dir),
+    make_directory(Dir),
+    directory_file_path(Dir, 'host_private.pl', F),
+    setup_call_cleanup(open(F, write, S),
+        format(S, "allow(host_private, secret_score/2).~nallow(host_private, each_secret/2).~nmeta_spec(host_private, each_secret(1, ?)).~n", []),
+        close(S)).
+
+test(private_profile_dir_joins_shipped_ones, [true(V == admit)]) :-
+    private_dir(P),
+    hornguard:hg_default_dir(D),
+    hornguard_load_profiles([D, P]),
+    hornguard_profiles(Names),
+    memberchk(host_private, Names), memberchk(iso, Names),
+    hornguard_admit(iso, [iso, host_private], (secret_score(a, S), S > 1), V).
+
+test(private_meta_spec_is_applied, [true(V = refused(_, escape_attempt, pinned(flags_ops) + depth(1)))]) :-
+    private_dir(P),
+    hornguard:hg_default_dir(D),
+    hornguard_load_profiles([D, P]),
+    hornguard_admit(iso, [iso, host_private], each_secret(current_prolog_flag(home), [_]), V).
+
+test(private_profile_cannot_reopen_a_pin, [throws(error(permission_error(allow, pinned(process), shell/1), _))]) :-
+    tmp_file(hg_private_bad, Dir), make_directory(Dir),
+    directory_file_path(Dir, 'bad.pl', F),
+    setup_call_cleanup(open(F, write, S), format(S, "allow(host_private, shell/1).~n", []), close(S)),
+    hornguard:hg_default_dir(D),
+    hornguard_load_profiles([D, Dir]).
+
+:- end_tests(profile_dirs).
+
 :- begin_tests(policy_unpin, [cleanup(load(host))]).
 
 test(unpin_warns_and_admits, [true(V == admit)]) :-

@@ -45,25 +45,24 @@ and bugs in the engine's own implementation.
 
 ## Layers
 
-```
-        author's text
-             |
-             v
-   +---------------------+   trusted position
-   |  read + canonicalize|   (planned: one reader, canonical form out)
-   +---------+-----------+
-             v
-   +---------------------+
-   |        judge        |   pure: admit / refuse, classify, semantics checks
-   |  profiles + pinned  |   this repository, the SWI pack
-   |  meta-spec table    |
-   +---------+-----------+
-             v
-   +---------------------+   untrusted position
-   |  backend: enforce   |   (planned: caps, isolation, second opinion)
-   +---------+-----------+
-             v
-        result or refusal -> events -> host
+```mermaid
+flowchart TB
+    T[Author's text] --> RD
+    subgraph trusted [Trusted position]
+        RD[Reader + canonicalizer<br/><i>planned</i>]
+        JD[Judge<br/>admit / refuse / classify<br/>stratification, floundering]
+        PR[(Profiles)] --- JD
+        PN[(Pinned classes)] --- JD
+        HP[(Host policy)] --- JD
+    end
+    RD -->|canonical term| JD
+    subgraph untrusted [Untrusted position]
+        BE[Backend enforcement<br/><i>planned</i><br/>caps, isolation, second opinion]
+        EN[Engine]
+    end
+    JD -->|admitted term| BE --> EN
+    JD -->|refused + class| EV[Events to host]
+    EN --> RS[Result]
 ```
 
 The **judge** is pure and portable. It takes a term, a backend identity, and a
@@ -107,6 +106,30 @@ refused. A clause set judged as a program has its own heads admitted in bodies.
 Before any walk the term is copied without attributes, refused if cyclic, and
 the walk's stack exhaustion on a pathological term becomes a refusal rather than
 an engine error.
+
+```mermaid
+flowchart TD
+    G[Goal in call position] --> U{Unbound?}
+    U -->|yes| R1[refused: unbound_goal]
+    U -->|no| Q{Module-qualified?}
+    Q -->|yes| R2[refused: qualified]
+    Q -->|no| C{Control construct?}
+    C -->|yes| W[Walk children,<br/>same depth] --> G
+    C -->|no| P{Pinned class?}
+    P -->|yes| R3[refused: pinned<br/>probe / escape / recon by depth]
+    P -->|no| TR{Host trusts it?}
+    TR -->|yes| S1[Apply declared spec] --> A[admit]
+    TR -->|no| F{Profile in force allows?}
+    F -->|yes| MS{Spec known?}
+    MS -->|yes| S2[Judge goal args at depth+1,<br/>complete closures first] --> A
+    MS -->|no, engine says meta| R4[refused: meta_spec]
+    MS -->|no, first-order| A
+    F -->|no| AV{Known profile,<br/>not in force?}
+    AV -->|yes| N1[need: profile]
+    AV -->|no| DF{defer_unknown and<br/>engine lacks it?}
+    DF -->|yes| N2[need: predicate]
+    DF -->|no| R5[refused: unknown]
+```
 
 ## Verdicts
 
@@ -158,7 +181,24 @@ Profiles are the allow rules: named sets of indicators with meta specs in SWI's
   from the engine's declarations. Generation is the starting point of
   attestation, not the end.
 
-Profiles are data, read with `read_term/2`, never consulted.
+```mermaid
+flowchart LR
+    subgraph shipped [Shipped with the pack]
+        ISO[iso<br/>pure ISO builtins]
+        PRO[prologue<br/>lists, higher order, not/1]
+        SWI[swi*<br/>generated from the engine]
+    end
+    subgraph host [Installed by the host]
+        HOSTP[host profiles<br/>allow + meta_spec]
+        POL[policy file<br/>allow, trust, options, unpin]
+    end
+    PIN[pinned classes<br/>refused before any profile] -.->|overrides| ISO & PRO & SWI & HOSTP
+    ISO --> PRO --> SWI --> HOSTP --> POL
+```
+
+Profiles are data, read with `read_term/2`, never consulted. A host loads its
+own directory beside the shipped one with `hornguard_load_profiles([Shipped, Mine])`;
+the policy check runs over the union, so a host profile cannot reopen a pin.
 
 ## Pinned classes
 
@@ -249,7 +289,7 @@ hornguard_admit_clause(+Backend, +Profiles, +Clause, [+Options,] -Verdict)
 hornguard_admit_program(+Backend, +Profiles, +Clauses, [+Options,] -Verdict)
 hornguard_stratification(+Clauses, -Result)
 hornguard_floundering(+ClauseOrGoal, -NegatedGoals)
-hornguard_load_profiles(+Dir)
+hornguard_load_profiles(+DirOrDirs)
 hornguard_load_policy(+File)
 hornguard_policy(-Policy)
 hornguard_admit(+Goal, -Verdict)              % under the loaded policy

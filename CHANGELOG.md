@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- hornguard_load_profiles/1 accepts a list of directories so a host installs its own profiles beside the shipped ones; the pin check runs over the union.
+- README rewritten around use: the firewall framing, worked verdicts, installing profiles, policy files, what is and is not built, how it is tested. Diagrams in Mermaid.
 - Generated-term properties: `test/test_generated.pl` builds 400 seeded goals from pure, pinned, meta and control vocabulary and checks that a pinned goal in call position is always refused, a clean term never is, a pinned functor in data position is admitted, refusal is monotonic under profile subsets, the judge never binds its input, verdicts are deterministic, the swi backend agrees with iso on refusals, and a goal and the same goal as a clause body refuse under the same class.
 - Mutation harness: `tools/mutate.py` disables one walker rule at a time (18 mutants) and requires every mutant to fail the suite. Its first run found one blind spot, the fail-closed meta-gap rule, now covered; head-shadowing and trust-spec coverage widened.
 - Policy files: hornguard_load_policy/1 reads backend, profiles, options, host allows, trust declarations and unpins from a file of facts; hornguard_admit/2, hornguard_admit_clause/2 and hornguard_admit_program/2 judge under the loaded policy. Unpinning is logged at every load and undone by the next policy; load errors leave the previous policy in force.
