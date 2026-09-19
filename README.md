@@ -133,8 +133,8 @@ previous policy stays in force.
 
 **What Hornguard does not do yet.** It judges admission and nothing else. Time
 and inference caps, module isolation, the uncatchable abort, rewrites, event
-emission and the reader that canonicalises author text before the engine ever
-sees it are designed and not built. Until they are, run the judge in a position
+emission and the judge worker that canonicalises author text before the engine
+ever sees it are designed and not built. Until they are, run the judge in a position
 the author's code cannot reach and enforce with your engine's own tools. See
 [docs/architecture.md](docs/architecture.md).
 
@@ -195,7 +195,7 @@ The public suite is the structural contract, not the whole picture; see
 | `fixtures/verdicts/` | Conformance fixtures |
 | `test/` | plunit suites |
 | `tools/` | Profile generator, sandbox differential, mutation harness (`make gen-profiles`, `make differential`, `make mutation`) |
-| `crates/` | Reserved for the Rust core |
+| `crates/` | Reserved for a Rust core; deferred, with the reasoning inside |
 
 ## License
 

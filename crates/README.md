@@ -1,16 +1,55 @@
 # crates/
 
-Reserved for the Rust core. Planned shape:
+Reserved for a Rust implementation of the judge and reader. Deferred, on
+purpose, and this note says why so the decision can be revisited with the
+same facts.
 
-- `hornguard-reader`: reads author text with the MIT-licensed
-  `tree-sitter-prolog` crate, refuses any tree containing an error node, converts to a term
-  against the backend manifest's operator table, and emits operator-free
-  canonical form. Reader-agreement fixtures compare its output with each
-  engine's own reader.
-- `hornguard-judge`: the walk, profiles, pinned classes, meta-spec completion,
-  rewrites, classification and events. Must pass `fixtures/verdicts/` exactly
-  as the pack does.
-- `hornguard-cli`, `hornguard-ffi` (C ABI), `hornguard-nif` (rustler), `hornguard-py`
-  (PyO3), `hornguard-wasm`: thin bindings.
+## What a Rust core was meant to buy
 
-The Prolog pack ships first and defines the fixtures the core must match.
+1. **Judging in a position the author's code cannot reach.** In-engine judging
+   shares a process with the code it judges; on SWI that is mitigated by the
+   protected-static-code flag, on Scryer it is not.
+2. **A reader that canonicalises author text** before any engine parses it,
+   closing parser differentials between the judge's view and the engine's.
+3. **Bindings** for hosts that are not Prolog: a rustler NIF for Elixir, PyO3
+   for Python, a C ABI, a Wasm build.
+4. **Coverage for engines with no in-engine protections** (Scryer, Trealla).
+
+## What changed
+
+The Prolog judge grew: stratification, floundering, policy files, deferred
+needs, classification. A Rust port must track every rule of it, and the
+fixture suite makes parity checkable but does not make two implementations
+cheaper than one. Meanwhile the first two goals turned out to have a cheaper
+path that needs no second implementation:
+
+- **A judge worker.** Run the pack in its own small `swipl` process, separate
+  from the engine that runs authors' code, speaking a line protocol over stdio.
+  Any host in any language spawns it and gets trusted-position judging. The
+  same worker can serve a Scryer or Trealla engine: the judge does not have to
+  run on the engine it protects.
+- **Canonical re-emission.** The trusted worker reads author text with the
+  engine's own reader flags, judges the term, and emits it with
+  `write_canonical/1`. Only the canonical form crosses to the untrusted engine,
+  so the engine never parses author text and there is no differential to
+  exploit. The reader-agreement fixtures then compare the worker's canonical
+  form with the target engine's `read_term/2` on the same text, per backend.
+- **Wasm without Rust.** SWI-Prolog's 10.x Wasm build runs engines in the
+  browser and at the edge. A judge worker compiled that way covers the Wasm
+  case for the price of a build step.
+
+That leaves goal 3 as the only thing a Rust core uniquely provides: in-process
+bindings for hosts that will not spawn a `swipl`. Nobody has asked for that
+yet.
+
+## When to build it
+
+- A host wants the judge in-process in a non-Prolog runtime and cannot spawn a
+  worker. That is the signal for `hornguard-judge` plus a binding.
+- A backend needs a reader that must not depend on SWI being installed at all,
+  for example a Scryer-only deployment with strict supply-chain rules. That is
+  the signal for `hornguard-reader` on `tree-sitter-prolog`, refusing any tree
+  with an error node and re-emitting canonical form.
+
+Until one of those arrives, the next portability work is the judge worker and
+canonical re-emission in the pack, not this directory.

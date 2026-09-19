@@ -67,7 +67,8 @@ flowchart TB
 
 The **judge** is pure and portable. It takes a term, a backend identity, and a
 set of profiles, and returns a verdict. It is written in ISO Prolog and runs on
-any engine; a Rust port driven by the same fixtures is planned.
+any engine, including in its own process as a judge worker serving an engine
+of a different kind.
 
 A **backend** is a manifest plus hooks: which predicates exist, their meta
 specs, and the enforcement the judge cannot provide (time, inference and stack
@@ -303,8 +304,11 @@ Options: `allow(Indicators)`, `trust(IndicatorSpecPairs)`,
 
 ## Not yet built
 
-- The reader and canonicalizer (the Rust core). In-engine, the term arrives
-  already parsed by the engine.
+- The judge worker: the pack in its own process, speaking a line protocol,
+  reading author text with the target backend's reader flags and emitting
+  canonical form so the untrusted engine never parses author text. This is
+  the near-term path to trusted-position judging for any host; a Rust core is
+  deferred until a host needs the judge in-process (see `crates/README.md`).
 - Enforcement: caps, isolation, the uncatchable abort, `library(sandbox)` as an
   in-engine second opinion. `hornguard_run/4` throws `not_implemented`.
 - Rewrites (`hornguard_rewrite/3`): the `catch/3` wrapper for backends whose
