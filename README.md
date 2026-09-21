@@ -26,6 +26,12 @@ flowchart LR
 The name is Horn clauses plus guard: the condition a clause must pass before its
 body runs, applied at the call port to code you did not write.
 
+> **0.1.0 judges admission and nothing else.** Caps, isolation, an abort the
+> author's `catch/3` cannot swallow, rewrites and event emission are designed
+> and not built. Run the judge where an author's code cannot reach it — the
+> worker does that — and enforce with your engine's own tools. See
+> [Beyond the judge](#beyond-the-judge).
+
 ## What it refuses, and why it can
 
 Prolog lets a capability boundary be drawn where a finite allowlist can be

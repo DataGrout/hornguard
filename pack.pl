@@ -1,5 +1,5 @@
 name(hornguard).
-version('0.0.1').
+version('0.1.0').
 title('Default-deny firewall for untrusted Prolog goals and clauses').
 author('DataGrout', 'https://github.com/DataGrout').
 home('https://github.com/DataGrout/hornguard').

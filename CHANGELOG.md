@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-09-21
 
 First release. The judge, the profiles, the policy file, the judge worker,
 the Rust client, and four backends. Enforcement, rewrites and events are
