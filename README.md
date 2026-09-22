@@ -231,7 +231,6 @@ everything above. Security reports: [SECURITY.md](SECURITY.md).
 | `profiles/` | `iso`, `prologue`, generated `swi*`, and the pinned class table |
 | `fixtures/verdicts/` | Conformance fixtures |
 | `test/` | plunit suites |
-| `RELEASING.md` | What is checked before a tag, and why |
 | `tools/` | Profile generator, sandbox differential, mutation harness (`make gen-profiles`, `make differential`, `make mutation`) |
 | `crates/hornguard` | The Rust client: spawns a judge worker and returns typed verdicts |
 
