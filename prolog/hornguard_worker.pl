@@ -302,21 +302,53 @@ reader_error(E, [], [], refused(reader(E))).
 %   appearance and singletons print as `_`. Only this form should cross to
 %   the engine.
 
+%   Variables are named through write_term's variable_names option and
+%   never by binding them to '$VAR'/1 terms: an author can write
+%   '$VAR'('Shell') themselves, and a writer in numbervars mode would print
+%   that data term as the variable `Shell`, so the engine would read a
+%   variable where the judge saw ground data. With numbervars off, the
+%   author's '$VAR' terms print as the compounds they are.
+
 hornguard_canonical(Term0, Text) :-
     copy_term(Term0, Term),
-    numbervars(Term, 0, _, [singletons(true)]),
-    canonical_write(Term, Text).
+    term_variables(Term, Vars),
+    term_singletons(Term, Singles),
+    hg_letter_names(Vars, Singles, 0, Bindings),
+    canonical_write(Term, Bindings, Text).
 
 hornguard_canonical(Term0, VarNames0, Text) :-
     copy_term(Term0-VarNames0, Term-VarNames),
-    maplist(name_var, VarNames),
-    term_variables(Term, Anon),
-    maplist([V]>>(V = '$VAR'('_')), Anon),
-    canonical_write(Term, Text).
+    term_variables(Term, Vars),
+    maplist(hg_author_name(VarNames), Vars, Bindings),
+    canonical_write(Term, Bindings, Text).
 
-name_var(Name=V) :- ( var(V) -> V = '$VAR'(Name) ; true ).
+%   A, B, ... Z, A1, B1, ... for variables that occur more than once; a
+%   singleton prints as `_`.
+hg_letter_names([], _, _, []).
+hg_letter_names([V|Vs], Singles, I, [Name=V|Bs]) :-
+    (   hg_var_in(V, Singles)
+    ->  Name = '_'
+    ;   Letter is 0'A + I mod 26,
+        Round is I // 26,
+        (   Round =:= 0
+        ->  char_code(Name, Letter)
+        ;   format(atom(Name), "~c~d", [Letter, Round])
+        )
+    ),
+    I1 is I + 1,
+    hg_letter_names(Vs, Singles, I1, Bs).
 
-canonical_write(Term, Text) :-
+hg_author_name(VarNames, V, Name=V) :-
+    (   member(Name0=V0, VarNames), V0 == V
+    ->  Name = Name0
+    ;   Name = '_'
+    ).
+
+hg_var_in(V, [X|Xs]) :-
+    (   V == X -> true ; hg_var_in(V, Xs) ).
+
+canonical_write(Term, Bindings, Text) :-
     with_output_to(string(Text),
                    write_term(Term, [ quoted(true), ignore_ops(true),
-                                      numbervars(true), spacing(standard) ])).
+                                      numbervars(false), variable_names(Bindings),
+                                      spacing(standard) ])).

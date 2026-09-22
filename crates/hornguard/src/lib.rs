@@ -126,8 +126,8 @@ impl Hornguard {
     }
 
     /// Judge one clause for storage. The body is judged exactly as a goal;
-    /// the head may not shadow a pinned predicate, a profile predicate, or a
-    /// control construct.
+    /// the head may not shadow a pinned predicate, a profile predicate, a
+    /// control construct, or a predicate the host trusts.
     pub fn judge_clause(&mut self, text: &str) -> Result<Verdict> {
         self.judge("judge_clause", text)
     }

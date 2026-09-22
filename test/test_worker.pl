@@ -138,7 +138,7 @@ iso_lists(T0, T) :-
     T =.. [F|As].
 
 test(engine_reads_our_canonical_form_as_the_same_term,
-     [ forall(( rfix(_, B, Text, Exp), string(Exp), memberchk(B, [scryer, trealla]),
+     [ forall(( rfix(_, B, _Text, Exp), string(Exp), memberchk(B, [scryer, trealla]),
                 engine_available(B) )),
        true(Same == true) ]) :-
     terminated(Exp, ExpT),
@@ -151,6 +151,14 @@ test(engine_reads_our_canonical_form_as_the_same_term,
 test(oversized_input_refused, [true(R == refused(reader(too_large)))]) :-
     length(L, 1_000_100), maplist(=(0'a), L), string_codes(S, L),
     hornguard_read(swi, S, _, R).
+
+test(programmatic_canonical_keeps_author_dollar_var_terms_as_data,
+     [true(C == "f('$VAR'('Shell'),'$VAR'(3),A,A,_)")]) :-
+    hornguard_canonical(f('$VAR'('Shell'), '$VAR'(3), X, X, _Y), C).
+
+test(named_canonical_keeps_author_dollar_var_terms_as_data,
+     [true(C == "f('$VAR'('Shell'),X,_)")]) :-
+    hornguard_canonical(f('$VAR'('Shell'), X, _Y), ['X'=X], C).
 
 test(programmatic_canonical_letters_and_underscores_singletons, [true(C == "findall(A,member(A,[a]),_)")]) :-
     hornguard_canonical(findall(X, member(X, [a]), _L), C).

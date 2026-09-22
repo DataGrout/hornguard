@@ -1,0 +1,9 @@
+Hornguard
+Copyright 2026 DataGrout
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+Hornguard was extracted from the sandbox guarding DataGrout's production
+Logic Cells. The generated `swi*` profiles are derived from what SWI-Prolog
+defines and what its library(sandbox) declares safe; SWI-Prolog is
+BSD-licensed software by Jan Wielemaker and contributors.

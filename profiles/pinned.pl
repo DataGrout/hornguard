@@ -152,3 +152,11 @@ pinned(streams, print_message/_).
 pinned(streams, print_message_lines/_).
 pinned(streams, listing/_).
 pinned(destructive_state, nb_current/_).
+
+%% Arithmetic functions are a second language inside the first, and the walk
+%% checks the expressions of is/2 and the comparisons for these. The two that
+%% read the clock hand an author the timing channel the `timing` pin closes for
+%% sleep/1 and get_time/1. random/1 and random_float are deliberately not here:
+%% randomness is admitted through the swi_random profile.
+pinned_evaluable(timing, cputime/0).
+pinned_evaluable(timing, realtime/0).

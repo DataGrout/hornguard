@@ -29,10 +29,15 @@ jobs:
           sudo apt-get install -y swi-prolog-nox
           swipl --version
 
+      # Both engines are optional: the reader-agreement fixtures run against
+      # an engine when it is on PATH and skip it otherwise. A third-party
+      # build breaking is worth a warning in the log, not a red suite.
       - name: Install Scryer Prolog
+        continue-on-error: true
         run: cargo install scryer-prolog --locked
 
       - name: Build Trealla
+        continue-on-error: true
         run: |
           git clone --depth 1 https://github.com/trealla-prolog/trealla.git /tmp/trealla
           sudo apt-get install -y libreadline-dev
@@ -53,17 +58,35 @@ jobs:
       - name: Sandbox differential
         run: make test-differential
 
-      # The committed profiles and manifests are generated against the stable
-      # engine. On devel a difference means the engine changed, which the
-      # differential above already reports; requiring a match there would turn
-      # every benign addition into a red build.
-      - name: Generated profiles and manifests are current
+      # The committed profile records the engine version it was generated
+      # against. On that version, regenerating must reproduce it. On any
+      # other, a difference is the engine having changed, which the
+      # differential above already reports, so the check says so and passes
+      # rather than going red for every benign addition in a newer engine.
+      - name: Generated profile is current
         if: matrix.swi == 'stable'
         run: |
+          recorded=$(sed -n 's/.*against SWI-Prolog \([0-9][0-9.]*\)\..*/\1/p' profiles/swi.pl | head -1)
+          running=$(swipl --version | sed -n 's/.*version \([0-9][0-9.]*\).*/\1/p')
+          if [ "$recorded" != "$running" ]; then
+            echo "profiles/swi.pl was generated against SWI-Prolog $recorded; this runner has $running."
+            echo "Skipping the currency check; the differential above is the one that matters here."
+            exit 0
+          fi
           make gen-profiles
+          git diff --exit-code -- profiles/swi.pl \
+            || (echo "profiles/swi.pl is stale; run make gen-profiles and review the diff" && exit 1)
+
+      # The engine manifests come from probes run inside Scryer and Trealla,
+      # whose versions the runner does not pin. A difference is reported for
+      # a maintainer to look at, never a failure.
+      - name: Engine manifests, informational
+        if: matrix.swi == 'stable'
+        continue-on-error: true
+        run: |
           make manifests
-          git diff --exit-code -- profiles/ \
-            || (echo "a generated profile or manifest is stale; run make gen-profiles && make manifests" && exit 1)
+          git diff --exit-code -- profiles/engine_scryer.pl profiles/engine_trealla.pl \
+            || echo "an engine manifest differs from the committed one; the engine on this runner is newer or older than the one it was generated from"
 
   mutation:
     name: mutation

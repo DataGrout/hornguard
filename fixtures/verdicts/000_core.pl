@@ -93,3 +93,17 @@ verdict(core_closure_unbound,      iso, [iso, prologue], maplist(_G, [a]),
 verdict(core_call_n_completed,     iso, [iso], call(current_prolog_flag, home, _),
         refused(escape_attempt, pinned(flags_ops) + depth(1))).
 verdict(core_call_n_pure,          iso, [iso], call(atom_length, abc, _), admit).
+
+%% Arithmetic is a second language the walk looks into: the evaluables that
+%% read the clock are pinned as `timing`, at the depth of the arithmetic goal.
+%% Everything else in an expression is data.
+verdict(core_evaluable_cputime,    iso, [iso], _ is cputime,
+        refused(capability_probe, evaluable(cputime/0))).
+verdict(core_evaluable_realtime,   iso, [iso], 0 < realtime,
+        refused(capability_probe, evaluable(realtime/0))).
+verdict(core_evaluable_nested,     iso, [iso], _ is 1 + max(2, cputime),
+        refused(capability_probe, evaluable(cputime/0))).
+verdict(core_evaluable_in_meta,    iso, [iso], findall(T, T is realtime, _),
+        refused(escape_attempt, evaluable(realtime/0) + depth(1))).
+verdict(core_evaluable_pure,       iso, [iso], (_ is 2 ** 10 + max(1, 2), 3 =:= 1 + 2), admit).
+verdict(core_evaluable_as_data,    iso, [iso], _ = cputime, admit).

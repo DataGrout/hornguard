@@ -7,7 +7,6 @@
             hornguard_admit_program/5,  % +Backend, +Profiles, +Clauses, +Options, -Verdict
             hornguard_stratification/2, % +Clauses, -Result
             hornguard_floundering/2,    % +ClauseOrGoal, -NegatedGoals
-            hornguard_rewrite/3,        % +Backend, +Term, -Guarded
             hornguard_run/4,            % +Backend, +Profiles, +Caps, +Goal
             hornguard_load_profiles/1,  % +Dir
             hornguard_load_policy/1,    % +File
@@ -37,9 +36,12 @@ class table (pinned/2), and returns a verdict:
             | semantics | evasion
       Rule:   pinned(Class) | unbound_goal | qualified | meta_spec(Indicator)
             | unknown | not_callable | head(Why) | directive | unsupported(What)
+            | evaluable(Name/Arity)
             | unstratified(Members, Head-Callee) | floundering(NegatedGoal)
             | cyclic_term | term_depth
               A pinned rule nested inside a meta-argument carries `+ depth(N)`.
+              head(Why) is one of control, pinned(Class), profile(Name),
+              trusted, qualified.
 
 The `semantics` class is not a threat signal. It marks a program the judge
 can admit capability-wise but refuses to store because it has no single
@@ -70,8 +72,15 @@ Structural rules, in the order the walk applies them:
   8. Anything else is refused as unknown, with an existence or permission
      reason depending on what the backend can tell.
 
-Rewrites and enforcement (hornguard_rewrite/3, hornguard_run/4) are not yet
-implemented; they belong to the backend layer, not the judge.
+Two more rules apply where the walk would otherwise not look. An
+arithmetic predicate's expressions are checked for pinned evaluables (the
+clock-reading functions), since arithmetic is a second language inside the
+first. And a clause head may not name a predicate the host trusts: the
+trusted definition is the one whose body is never walked, and a clause in
+sandboxed space would stand in for it.
+
+Enforcement (hornguard_run/4) is not yet implemented; it belongs to the
+backend layer, not the judge.
 */
 
 :- use_module(library(lists)).
@@ -81,8 +90,11 @@ implemented; they belong to the backend layer, not the judge.
 :- dynamic hg_allow/2,          % Profile, Name/Arity
            hg_meta/2,           % Profile, Spec (meta_predicate notation)
            hg_pinned/2,         % Class, Name/Arity (Arity may be unbound)
+           hg_pinned_evaluable/2, % Class, Name/Arity of an arithmetic function
+           hg_unpinned/2,       % Class, Name/Arity  (moved aside by a policy unpin)
            hg_engine/2,         % Backend, Name/Arity   (what the engine defines)
            hg_enforcement/2,    % Backend, native | external | none
+           hg_policy/1,         % policy(Backend, Profiles, Options, Allow, Trust)
            hg_loaded_dir/1,
            hg_default_dir/1.
 
@@ -107,66 +119,72 @@ implemented; they belong to the backend layer, not the judge.
 %
 %   The directory holds profiles and backend manifests. Accepted terms:
 %   allow(Profile, Name/Arity), meta_spec(Profile, Spec),
-%   pinned(Class, Name/Arity), engine(Backend, Name/Arity),
-%   enforcement(Backend, Kind) and directives (ignored). Anything else is a
-%   domain_error. An allow that names a pinned indicator is a load error:
-%   pinned classes are not reopened by profile.
+%   pinned(Class, Name/Arity), pinned_evaluable(Class, Name/Arity),
+%   engine(Backend, Name/Arity), enforcement(Backend, Kind) and directives
+%   (ignored). Anything else is a domain_error. An allow that names a pinned
+%   indicator is a load error: pinned classes are not reopened by profile.
+%
+%   Every file is read and checked before any table changes, so a directory
+%   that fails to load leaves the profiles that were in force exactly as
+%   they were.
 
 hornguard_load_profiles(DirOrDirs) :-
     (   is_list(DirOrDirs) -> Dirs = DirOrDirs ; Dirs = [DirOrDirs] ),
     must_be(list(atom), Dirs),
+    foldl(hg_collect_profile_dir, Dirs, [], Facts0),
+    reverse(Facts0, Facts),
+    hg_check_profile_pins(Facts),
     retractall(hg_allow(_, _)),
     retractall(hg_meta(_, _)),
     retractall(hg_pinned(_, _)),
+    retractall(hg_pinned_evaluable(_, _)),
+    retractall(hg_unpinned(_, _)),
     retractall(hg_engine(_, _)),
     retractall(hg_enforcement(_, _)),
     retractall(hg_loaded_dir(_)),
-    forall(member(Dir, Dirs), hg_load_profile_dir(Dir)),
-    hg_check_policy,
+    forall(member(Fact, Facts), assertz(Fact)),
     assertz(hg_loaded_dir(Dirs)).
 
-hg_load_profile_dir(Dir) :-
+hg_collect_profile_dir(Dir, Acc0, Acc) :-
     directory_files(Dir, Entries),
     include(hg_profile_file, Entries, Files0),
     msort(Files0, Files),
-    forall(member(F, Files),
-           ( directory_file_path(Dir, F, Path),
-             hg_load_profile_file(Path) )).
+    foldl(hg_collect_profile_file(Dir), Files, Acc0, Acc).
 
 hg_profile_file(F) :-
     file_name_extension(_, pl, F).
 
-hg_load_profile_file(Path) :-
+hg_collect_profile_file(Dir, F, Acc0, Acc) :-
+    directory_file_path(Dir, F, Path),
     setup_call_cleanup(
         open(Path, read, In),
-        hg_read_profile_terms(In, Path),
+        hg_collect_profile_terms(In, Path, Acc0, Acc),
         close(In)).
 
-hg_read_profile_terms(In, Path) :-
+hg_collect_profile_terms(In, Path, Acc0, Acc) :-
     read_term(In, Term, [module(hornguard)]),
     (   Term == end_of_file
-    ->  true
-    ;   hg_accept_profile_term(Term, Path),
-        hg_read_profile_terms(In, Path)
+    ->  Acc = Acc0
+    ;   hg_profile_fact(Term, Path, Acc0, Acc1),
+        hg_collect_profile_terms(In, Path, Acc1, Acc)
     ).
 
-hg_accept_profile_term(allow(P, N/A), _) :-
-    atom(P), atom(N), integer(A), !,
-    assertz(hg_allow(P, N/A)).
-hg_accept_profile_term(meta_spec(P, Spec), _) :-
-    atom(P), callable(Spec), !,
-    assertz(hg_meta(P, Spec)).
-hg_accept_profile_term(pinned(C, N/A), _) :-
-    atom(C), atom(N), ( var(A) ; integer(A) ), !,
-    assertz(hg_pinned(C, N/A)).
-hg_accept_profile_term(engine(B, N/A), _) :-
-    atom(B), atom(N), integer(A), !,
-    assertz(hg_engine(B, N/A)).
-hg_accept_profile_term(enforcement(B, Kind), _) :-
-    atom(B), hg_enforcement_kind(Kind), !,
-    assertz(hg_enforcement(B, Kind)).
-hg_accept_profile_term((:- _), _) :- !.
-hg_accept_profile_term(Term, Path) :-
+%   The fact a profile term becomes, consed onto the accumulator; the list
+%   is reversed once before it is asserted so file order is kept.
+hg_profile_fact(allow(P, N/A), _, Acc, [hg_allow(P, N/A)|Acc]) :-
+    atom(P), atom(N), integer(A), !.
+hg_profile_fact(meta_spec(P, Spec), _, Acc, [hg_meta(P, Spec)|Acc]) :-
+    atom(P), callable(Spec), !.
+hg_profile_fact(pinned(C, N/A), _, Acc, [hg_pinned(C, N/A)|Acc]) :-
+    atom(C), atom(N), ( var(A) ; integer(A) ), !.
+hg_profile_fact(pinned_evaluable(C, N/A), _, Acc, [hg_pinned_evaluable(C, N/A)|Acc]) :-
+    atom(C), atom(N), integer(A), !.
+hg_profile_fact(engine(B, N/A), _, Acc, [hg_engine(B, N/A)|Acc]) :-
+    atom(B), atom(N), integer(A), !.
+hg_profile_fact(enforcement(B, Kind), _, Acc, [hg_enforcement(B, Kind)|Acc]) :-
+    atom(B), hg_enforcement_kind(Kind), !.
+hg_profile_fact((:- _), _, Acc, Acc) :- !.
+hg_profile_fact(Term, Path, _, _) :-
     throw(error(domain_error(hornguard_profile_term, Term), context(Path, _))).
 
 %   What a backend can do about a running goal.
@@ -180,9 +198,9 @@ hg_enforcement_kind(native).
 hg_enforcement_kind(external).
 hg_enforcement_kind(none).
 
-hg_check_policy :-
-    forall(hg_allow(P, N/A),
-           (   hg_pinned(C, N/A)
+hg_check_profile_pins(Facts) :-
+    forall(member(hg_allow(P, N/A), Facts),
+           (   member(hg_pinned(C, N/A), Facts)
            ->  throw(error(permission_error(allow, pinned(C), N/A),
                            context(profile(P), 'pinned classes are not reopened by profile')))
            ;   true
@@ -245,16 +263,26 @@ hg_read_policy_terms(In, File, Acc, Terms) :-
     ;   hg_read_policy_terms(In, File, [T|Acc], Terms)
     ).
 
-:- dynamic hg_policy/1.          % policy(Backend, Profiles, Options, Allow, Trust)
-:- dynamic hg_unpinned/2.        % Class, Name/Arity  (kept for re-pinning)
-
+%   The whole file is validated before anything changes, so a file that
+%   fails to load leaves the policy and the pins exactly as they were. The
+%   unpins it asks for are known while the allows are checked, since an
+%   allow of a class the same file reopens is what the file means.
 hg_install_policy(Terms, File) :-
-    hg_repin_all,
-    forall(member(unpin(C), Terms), hg_unpin(C, File)),
     foldl(hg_policy_term(File), Terms, pol(iso, [iso], [], [], []), pol(B, Ps, Os, Al, Tr)),
-    hg_check_host_allows(Al, File),
+    findall(C, member(unpin(C), Terms), Unpins0),
+    sort(Unpins0, Unpins),
+    forall(member(C, Unpins), hg_check_unpin_class(C, File)),
+    hg_check_host_allows(Al, Unpins, File),
+    hg_repin_all,
+    forall(member(C, Unpins), hg_unpin(C, File)),
     retractall(hg_policy(_)),
     assertz(hg_policy(policy(B, Ps, Os, Al, Tr))).
+
+hg_check_unpin_class(Class, File) :-
+    (   atom(Class), ( hg_pinned(Class, _) ; hg_unpinned(Class, _) )
+    ->  true
+    ;   throw(error(domain_error(hornguard_pinned_class, Class), context(File, _)))
+    ).
 
 hg_policy_term(_, unpin(_), P, P) :- !.
 hg_policy_term(_, (:- _), P, P) :- !.
@@ -289,9 +317,10 @@ hg_indicator_term(N/A) :- atom(N), integer(A), A >= 0.
 hg_trust_spec_ok(_, none) :- !.
 hg_trust_spec_ok(N/A, Spec) :- callable(Spec), functor(Spec, N, A).
 
-hg_check_host_allows(Allows, File) :-
+hg_check_host_allows(Allows, Unpins, File) :-
     forall(member(Ind, Allows),
-           (   hg_pinned(C, Ind)
+           (   ( hg_pinned(C, Ind) ; hg_unpinned(C, Ind) ),
+               \+ memberchk(C, Unpins)
            ->  throw(error(permission_error(allow, pinned(C), Ind),
                            context(File, 'pinned classes are reopened with unpin/1, never by allow/1')))
            ;   true
@@ -493,9 +522,52 @@ hg_goal(!, _, _, N, N) :- !.
 hg_goal(G, D, Ctx, N0, N) :-
     callable(G), !,
     functor(G, Name, Arity),
-    hg_indicator(G, Name/Arity, D, Ctx, N0, N).
+    hg_indicator(G, Name/Arity, D, Ctx, N0, N),
+    hg_check_evaluables(G, Name/Arity, D).
 hg_goal(G, _, _, _, _) :-
     throw(hg_refused(type_error(callable, G), benign_miss, not_callable)).
+
+%   Arithmetic is a second language the walk would otherwise not look into.
+%   Its functions are pure except the ones that read the clock, which hand
+%   an author the timing channel the `timing` pin exists to close, so the
+%   expressions of an arithmetic predicate are checked for pinned
+%   evaluables (profiles/pinned.pl, `pinned_evaluable/2`). Refused with the
+%   same class and depth a pinned goal would carry at that position.
+hg_check_evaluables(G, Ind, D) :-
+    (   hg_arith_indicator(Ind)
+    ->  G =.. [_|Args],
+        forall(member(A, Args), hg_check_expr(A, D))
+    ;   true
+    ).
+
+hg_arith_indicator((is)/2).
+hg_arith_indicator((=:=)/2).
+hg_arith_indicator((=\=)/2).
+hg_arith_indicator((<)/2).
+hg_arith_indicator((>)/2).
+hg_arith_indicator((=<)/2).
+hg_arith_indicator((>=)/2).
+
+hg_check_expr(V, _) :-
+    var(V), !.
+hg_check_expr(E, D) :-
+    atom(E), !,
+    hg_check_evaluable(E/0, D).
+hg_check_expr(E, D) :-
+    compound(E), !,
+    functor(E, F, A),
+    hg_check_evaluable(F/A, D),
+    E =.. [_|Args],
+    forall(member(Arg, Args), hg_check_expr(Arg, D)).
+hg_check_expr(_, _).
+
+hg_check_evaluable(Ind, D) :-
+    (   hg_pinned_evaluable(Class, Ind)
+    ->  hg_pinned_report_class(Class, D, Report),
+        hg_depth_rule(evaluable(Ind), D, Rule),
+        throw(hg_refused(permission_error(evaluate, evaluable, Ind), Report, Rule))
+    ;   true
+    ).
 
 hg_indicator(G, Ind, D, Ctx, N0, N) :-
     (   hg_pinned(PinClass, Ind)
@@ -626,11 +698,11 @@ hg_clause((?- _), _, _) :- !,
 hg_clause((_ --> _), _, _) :- !,
     throw(hg_refused(permission_error(modify, static_procedure, (-->)/2), benign_miss, unsupported(dcg))).
 hg_clause((Head :- Body), Ctx0, Needs) :- !,
-    hg_head(Head),
+    hg_head(Head, Ctx0),
     hg_allow_head_in_body(Head, Ctx0, Ctx),
     hg_goal(Body, 0, Ctx, [], Needs).
-hg_clause(Head, _, []) :-
-    hg_head(Head).
+hg_clause(Head, Ctx, []) :-
+    hg_head(Head, Ctx).
 
 %   A clause may call its own head: recursion is the normal shape of a rule.
 %   Any other sandboxed predicate has to arrive through the allow/1 option,
@@ -639,12 +711,17 @@ hg_allow_head_in_body(Head, ctx(B, P, Allow, Trust, D), ctx(B, P, [Ind|Allow], T
     functor(Head, Name, Arity),
     Ind = Name/Arity.
 
-hg_head(Var) :-
+%   A head may not name anything the judge reasons about: a control
+%   construct, a pinned or profile predicate, or a predicate the host
+%   trusts. The trusted case is the one that is easy to miss: the host's
+%   definition is the one whose body is never walked, so a clause in
+%   sandboxed space with that head would stand in for it.
+hg_head(Var, _) :-
     var(Var), !,
     throw(hg_refused(instantiation_error, escape_attempt, unbound_head)).
-hg_head(_:_) :- !,
+hg_head(_:_, _) :- !,
     throw(hg_refused(permission_error(modify, static_procedure, (:)/2), escape_attempt, head(qualified))).
-hg_head(Head) :-
+hg_head(Head, Ctx) :-
     callable(Head), !,
     functor(Head, Name, Arity),
     Ind = Name/Arity,
@@ -652,11 +729,13 @@ hg_head(Head) :-
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(control)))
     ;   hg_pinned(Class, Ind)
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))
+    ;   hg_trusted(Ind, Ctx, _)
+    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(trusted)))
     ;   hg_allow(Profile, Ind)
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(profile(Profile))))
     ;   true
     ).
-hg_head(Head) :-
+hg_head(Head, _) :-
     throw(hg_refused(type_error(callable, Head), benign_miss, not_callable)).
 
 hg_control_indicator((',')/2).
@@ -1003,9 +1082,6 @@ hg_engine_defines(ctx(Backend, _, _, _, _), _, Ind) :-
 		 /*******************************
 		 *      NOT YET IMPLEMENTED     *
 		 *******************************/
-
-hornguard_rewrite(_Backend, _Term, _Guarded) :-
-    throw(error(not_implemented(hornguard_rewrite/3), _)).
 
 %!  hornguard_run(+Backend, +Profiles, +Caps, +Goal)
 %

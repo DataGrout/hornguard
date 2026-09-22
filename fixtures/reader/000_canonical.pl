@@ -36,6 +36,11 @@ reader(rd_big_int,      swi, "X = 123456789012345678901234567890", "=(X,12345678
 reader(rd_float,        swi, "X = 1.5e10",                "=(X,15000000000.0)").
 reader(rd_op_as_atom,   swi, "X = (+), Y = (:-)",         "','(=(X,+),=(Y,:-))").
 reader(rd_nested_ops,   swi, "X = a:b:c",                 "=(X,:(a,:(b,c)))").
+%% An author's own '$VAR'/1 terms are data and stay data: a writer in
+%% numbervars mode would print '$VAR'('Shell') as the variable Shell, and the
+%% engine would read a variable where the judge saw ground data.
+reader(rd_dollar_var,   swi, "p('$VAR'('Shell'), '$VAR'(1), '$VAR'('_'))",
+        "p('$VAR'('Shell'),'$VAR'(1),'$VAR'('_'))").
 
 %% Refused at the reader.
 reader(rd_syntax,       swi, "foo(",                      refused(reader(syntax_error(_)))).

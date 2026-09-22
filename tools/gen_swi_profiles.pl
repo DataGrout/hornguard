@@ -13,8 +13,8 @@
 %% Meta specs are derived from the engine's meta_predicate declarations.
 %%
 %% The output is a starting point for attestation, not an attestation. The
-%% file header records the engine version and date; a reviewer signs it by
-%% editing the header.
+%% file header records the engine version and date; who reviewed which
+%% generation is recorded in profiles/REVIEWS.md, not in the generated file.
 %%
 %% Run: swipl -g gen_swi_profiles -t halt tools/gen_swi_profiles.pl
 
@@ -189,7 +189,7 @@ emit(S, Kept, Dropped) :-
     format(S, "%% Source: predicates the engine defines that library(sandbox) declares safe~n", []),
     format(S, "%% and that iso/prologue do not cover, minus pinned classes and the tool's~n", []),
     format(S, "%% exclusion table. This is a starting point for attestation, not an~n", []),
-    format(S, "%% attestation. Reviewed by: (pending)~n%%~n", []),
+    format(S, "%% attestation. The review record is profiles/REVIEWS.md.~n%%~n", []),
     format(S, "%% Dropped (sandbox-safe, kept out, with reason):~n", []),
     forall(member(Ind-Why, Dropped), format(S, "%%   ~q~t~40|~w~n", [Ind, Why])),
     format(S, "~n:- multifile allow/2, meta_spec/2.~n", []),

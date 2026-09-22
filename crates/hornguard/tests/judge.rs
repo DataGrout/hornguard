@@ -193,6 +193,26 @@ fn a_trusted_host_predicate_still_has_its_goal_arguments_judged() {
 }
 
 #[test]
+fn a_clause_may_not_define_a_trusted_host_predicate() {
+    let mut hg = Hornguard::builder()
+        .home(home())
+        .profiles(["iso"])
+        .trust([("lookup_price/3", "none")])
+        .spawn()
+        .unwrap();
+    // The trusted definition is the one whose body is never walked; a clause
+    // in sandboxed space with that head would stand in for it.
+    let v = hg.judge_clause("lookup_price(_, _, 0) :- true").unwrap();
+    match v {
+        Verdict::Refused { class, rule, .. } => {
+            assert_eq!(class, Class::EscapeAttempt);
+            assert_eq!(rule, "head(trusted)");
+        }
+        other => panic!("expected a refusal, got {other:?}"),
+    }
+}
+
+#[test]
 fn a_policy_file_configures_the_worker() {
     let policy = home().join("test").join("policies").join("host.pl");
     let mut hg = Hornguard::builder()

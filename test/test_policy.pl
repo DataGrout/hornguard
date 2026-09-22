@@ -42,6 +42,26 @@ test(trusted_body_is_not_walked, [true(V == admit)]) :-
     % lookup_price/3 is trusted: whatever its clauses do is the host's business.
     hornguard_admit(lookup_price(a, b, c), V).
 
+%   The trusted definition is the one whose body is never walked, so an
+%   author may not store a clause with that head and stand in for it.
+test(clause_may_not_define_a_trusted_predicate,
+     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+    hornguard_admit_clause((lookup_price(_, _, 0) :- true), V).
+
+test(fact_may_not_define_a_trusted_predicate,
+     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+    hornguard_admit_clause(with_tenant(any, true), V).
+
+test(program_may_not_define_a_trusted_predicate,
+     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+    hornguard_admit_program([ (tiered(C) :- customer_tier(C, gold)),
+                              (lookup_price(_, _, 0) :- true) ], V).
+
+test(host_allow_heads_are_the_authors_own, [true(V == admit)]) :-
+    % allow/1 names predicates whose clauses live in sandboxed space; storing
+    % another clause of one is the normal case.
+    hornguard_admit_clause((customer_tier(acme, gold) :- true), V).
+
 test(defer_unknown_from_policy, [true(V == admit_needs([predicate(later/1)]))]) :-
     hornguard_admit_clause((first(X) :- later(X)), V).
 
@@ -92,6 +112,22 @@ test(private_profile_cannot_reopen_a_pin, [throws(error(permission_error(allow, 
     setup_call_cleanup(open(F, write, S), format(S, "allow(host_private, shell/1).~n", []), close(S)),
     hornguard:hg_default_dir(D),
     hornguard_load_profiles([D, Dir]).
+
+%   A directory that fails to load must leave the profiles that were in
+%   force untouched: the tables are replaced only once every file has been
+%   read and checked.
+test(failed_profile_load_leaves_previous_profiles_in_force,
+     [true(( Still == true, V = refused(_, capability_probe, pinned(process)) ))]) :-
+    private_dir(P),
+    hornguard:hg_default_dir(D),
+    hornguard_load_profiles([D, P]),
+    tmp_file(hg_private_bad2, Bad), make_directory(Bad),
+    directory_file_path(Bad, 'bad.pl', F),
+    setup_call_cleanup(open(F, write, S), format(S, "allow(host_private, shell/1).~n", []), close(S)),
+    catch(hornguard_load_profiles([D, Bad]), error(permission_error(_, _, _), _), true),
+    hornguard_profiles(Names),
+    ( memberchk(host_private, Names), memberchk(iso, Names) -> Still = true ; Still = Names ),
+    hornguard_admit(iso, [iso], shell(x), V).
 
 %   A host that builds its own engine ships a manifest for it. Deferral has
 %   to read that manifest, or defer_unknown(true) turns every builtin the
@@ -212,6 +248,26 @@ test(unknown_term, [throws(error(domain_error(hornguard_policy_term, allow_every
 test(failed_load_leaves_previous_policy, [true(P = policy(swi, [iso, prologue, swi_lists], _, _, _))]) :-
     load(host),
     catch(load(bad_term), _, true),
+    hornguard_policy(P).
+
+%   The pins too. A file that reopens a class and then fails validation used
+%   to leave the class open with the old policy still recorded; every check
+%   now runs before anything changes.
+test(failed_load_with_unpin_leaves_the_class_pinned,
+     [true(V = refused(_, reconnaissance, pinned(reflection)))]) :-
+    load(host),
+    catch(load(bad_unpin_then_error), error(domain_error(_, _), _), true),
+    hornguard_admit(clause(foo(_), _), V).
+
+test(unpin_of_unknown_class_is_a_load_error,
+     [throws(error(domain_error(hornguard_pinned_class, no_such_class), _))]) :-
+    load(bad_unpin_unknown).
+
+test(unpin_of_unknown_class_changes_nothing,
+     [true(( V = refused(_, reconnaissance, pinned(reflection)), P = policy(swi, [iso, prologue, swi_lists], _, _, _) ))]) :-
+    load(host),
+    catch(load(bad_unpin_unknown), _, true),
+    hornguard_admit(clause(foo(_), _), V),
     hornguard_policy(P).
 
 :- end_tests(policy_errors).

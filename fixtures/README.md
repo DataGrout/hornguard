@@ -1,8 +1,8 @@
 # Fixtures
 
 Fixtures are the contract every implementation of the judge must satisfy. They
-are Prolog facts so that both the pack and the Rust core can load them without
-a second parser.
+are Prolog facts so that any implementation can load them without a second
+parser.
 
 ## Verdict fixtures (`verdicts/`)
 

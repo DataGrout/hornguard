@@ -16,15 +16,18 @@ adversarial use." Changing a profile therefore requires:
 2. For any predicate that takes a goal or closure argument, a `meta_spec/2`
    entry in the same change. A meta-predicate without a spec is refused by the
    judge, so a missing spec shows up as a failing fixture, not a silent hole.
-3. Two reviewers.
+3. Review by a maintainer, and by a second reviewer whenever one is
+   available. Hornguard has one maintainer today, so that is not always
+   possible; what it never skips is the record. `profiles/REVIEWS.md` says who
+   attested which generation of which profile, against which engine, and when.
 
 Pinned classes are not reopened by pull request. Argue for it in an issue first.
 
 ## Fixtures are the contract
 
-Every implementation of the judge (the Prolog pack, the Rust core) must pass the
-same fixture suite. A change to one implementation that needs a fixture changed
-is a change to the contract and is reviewed as such.
+Every implementation of the judge (today the Prolog pack; a Rust port, if one is
+ever built) must pass the same fixture suite. A change to one implementation
+that needs a fixture changed is a change to the contract and is reviewed as such.
 
 ## What stays out
 

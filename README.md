@@ -49,6 +49,14 @@ enumerable set. So Hornguard walks the term and asks, at every call position:
    `maplist(assertz, L)` is refused because `assertz(_)` is.
 5. Otherwise it is unknown, or it needs a profile the host has not put in force.
 
+Two places the walk looks where a reader might not expect it to. Arithmetic is a
+second language inside the first, so the expressions of `is/2` and the
+comparisons are checked for the evaluables that read the clock: `X is cputime`
+is refused as `timing`, the way `sleep/1` is. And a stored clause may not
+define anything the judge reasons about: a control construct, a pinned or
+profile predicate, or a predicate the host trusts, since the trusted definition
+is the one whose body is never walked.
+
 A clause set is also judged as a program. It must be stratified, because a rule
 set that recurses through negation or aggregation has no single meaning to be
 safe about, and a negated goal may not introduce a variable that is used after
@@ -212,7 +220,7 @@ adversarial by construction and all of it runs under `make test`:
 | Sandbox differential | every predicate the engine defines, judged by Hornguard and by SWI's `library(sandbox)`; any admit that sandbox refuses, or any unexplained refusal, fails |
 | Mutation | one rule of the walk disabled at a time; every mutant must fail the suite |
 | Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
-| Rust client | 18 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |
+| Rust client | 19 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |
 
 The public suite is the contract, and what belongs in it is decided by the
 mutation harness rather than by taste: any case needed to kill a mutant is
@@ -228,7 +236,7 @@ everything above. Security reports: [SECURITY.md](SECURITY.md).
 |---|---|
 | `docs/architecture.md` | The judge, verdicts, profiles, pinned classes, policy, semantics checks, testing, API |
 | `pack.pl`, `prolog/` | The pack |
-| `profiles/` | `iso`, `prologue`, generated `swi*`, and the pinned class table |
+| `profiles/` | `iso`, `prologue`, generated `swi*`, the pinned class table, and `REVIEWS.md`, the record of who attested which generation |
 | `fixtures/verdicts/` | Conformance fixtures |
 | `test/` | plunit suites |
 | `tools/` | Profile generator, sandbox differential, mutation harness (`make gen-profiles`, `make differential`, `make mutation`) |

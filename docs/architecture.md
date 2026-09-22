@@ -49,7 +49,7 @@ and bugs in the engine's own implementation.
 flowchart TB
     T[Author's text] --> RD
     subgraph trusted [Trusted position]
-        RD[Reader + canonicalizer<br/><i>planned</i>]
+        RD[Reader + canonicalizer<br/>the judge worker]
         JD[Judge<br/>admit / refuse / classify<br/>stratification, floundering]
         PR[(Profiles)] --- JD
         PN[(Pinned classes)] --- JD
@@ -125,9 +125,17 @@ Judgment is a walk over the term, in this order:
 8. Anything else is refused as unknown, with an existence or permission reason
    depending on what the backend can tell.
 
+Arithmetic is a second language inside the first, and the walk looks into it:
+the expressions of `is/2` and the comparisons are checked for pinned
+evaluables (`pinned_evaluable/2` in `profiles/pinned.pl`, today the two
+functions that read the clock), refused with the class and depth a pinned goal
+would carry at that position. Everything else in an expression is data.
+
 The same walk judges clause bodies for storage. A head may not be unbound,
-module-qualified, a control construct, or an indicator a pinned class or a
-loaded profile already claims. A clause may call its own head. Directives are
+module-qualified, a control construct, an indicator a pinned class or a loaded
+profile already claims, or a predicate the host trusts: the trusted definition
+is the one whose body is never walked, and a clause in sandboxed space with
+that head would stand in for it. A clause may call its own head. Directives are
 refused. A clause set judged as a program has its own heads admitted in bodies.
 
 Before any walk the term is copied without attributes, refused if cyclic, and
@@ -181,7 +189,9 @@ oracle policy. `Class` is one of:
 `Rule` names what decided: `pinned(Class)`, `unbound_goal`, `qualified`,
 `meta_spec(Indicator)`, `unknown`, `not_callable`, `head(Why)`, `directive`,
 `unsupported(What)`, `unstratified(Members, Head-Callee)`,
-`floundering(NegatedGoal)`, `cyclic_term`, `term_depth`. A pinned rule nested
+`floundering(NegatedGoal)`, `evaluable(Name/Arity)`, `cyclic_term`,
+`term_depth`. `head(Why)` is one of `control`, `pinned(Class)`,
+`profile(Name)`, `trusted`, `qualified`. A pinned rule nested
 inside a meta-argument carries `+ depth(N)`: benign code rarely buries a
 pinned goal three meta-arguments deep.
 
@@ -206,7 +216,8 @@ Profiles are the allow rules: named sets of indicators with meta specs in SWI's
   and an explicit exclusion table (dicts, lambdas, attributes and DCG deferred;
   timing, reflection and filesystem kept out on purpose). Meta specs derive
   from the engine's declarations. Generation is the starting point of
-  attestation, not the end.
+  attestation, not the end; who reviewed which generation, against which
+  engine, is recorded in `profiles/REVIEWS.md`.
 
 ```mermaid
 flowchart LR
@@ -238,7 +249,9 @@ flags and operators, reflection, parsing, destructive state, format, timing.
 
 `profiles/pinned.pl` lists the indicators. Name-only pins (`open/_`) are
 deliberate here and only here: a single unpinned arity of `open` or `format` is
-the whole game.
+the whole game. The same file pins arithmetic evaluables
+(`pinned_evaluable/2`): the clock-reading functions, which the walk checks
+inside the expressions of `is/2` and the comparisons.
 
 ## Host policy
 
@@ -260,8 +273,10 @@ sandboxed space and were body-judged at storage, `trust` for host predicates
 admitted without walking their bodies. `trust` is the only real escape hatch,
 so it must declare a meta spec or `none`, and it is the thing a reviewer greps
 for. Load errors (an allow of a pinned indicator, a mismatched trust spec, an
-unknown profile or option, an unrecognised term) leave the previous policy in
-force.
+unknown profile, option or pinned class, an unrecognised term) leave the
+previous policy and the pins exactly as they were: the whole file is validated
+before anything changes, so an `unpin` in a file that fails further down never
+takes effect. The same holds for `hornguard_load_profiles/1`.
 
 ## Semantics checks
 
@@ -383,8 +398,9 @@ Options: `allow(Indicators)`, `trust(IndicatorSpecPairs)`,
   implementation (see `crates/README.md`).
 - Enforcement: caps, isolation, the uncatchable abort, `library(sandbox)` as an
   in-engine second opinion. `hornguard_run/4` throws `not_implemented`.
-- Rewrites (`hornguard_rewrite/3`): the `catch/3` wrapper for backends whose
-  abort can be caught, depth guards.
+- Rewrites (a `hornguard_rewrite/3`, not yet exported): the `catch/3` wrapper
+  for backends whose abort can be caught, depth guards.
 - Events: emission of classified refusals to a host hook, per-session probe
   thresholds, author-facing error detail as a policy setting.
-- The `scryer` and `trealla` backends.
+- In-engine enforcement for the `scryer` and `trealla` backends; their
+  manifests and declared `external` enforcement are in place.
