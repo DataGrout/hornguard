@@ -103,7 +103,12 @@ WebAssembly runtime's fuel and memory, and attests that before running
 anything.
 
 The **host bridge** runs the judge in a position the author's code cannot
-reach. In-engine judging is supported and documented as weaker.
+reach. In-engine judging is supported and documented as weaker, for two
+reasons: the author's code shares a process with the judge, and on SWI the
+judge's question "does the engine define this" autoloads the library that
+does, so author text decides what the judging process loads. The worker
+closes the second by loading every autoloadable library once at start and
+switching autoloading off; a host judging in-engine should do the same.
 
 ## The walk
 

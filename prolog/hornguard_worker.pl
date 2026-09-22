@@ -68,8 +68,20 @@ max_input_bytes(1_000_000).
 hornguard_worker_main :-
     set_stream(user_output, encoding(utf8)),
     set_stream(user_input, encoding(utf8)),
+    seal_autoloading,
     hello,
     loop.
+
+%   On the swi backend the judge asks the engine whether a predicate is
+%   defined, and SWI answers that question by autoloading the library that
+%   defines it. Left as is, an author's text would decide which libraries the
+%   judge's own process loads. Everything autoloadable is loaded once here,
+%   before any author text is read, and then autoloading is switched off, so
+%   the engine surface the judge reasons about is fixed for the worker's
+%   lifetime and nothing an author writes changes the judge's process.
+seal_autoloading :-
+    catch(autoload_all, _, true),
+    set_prolog_flag(autoload, false).
 
 hello :-
     protocol_version(P),

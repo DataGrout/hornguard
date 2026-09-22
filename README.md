@@ -192,6 +192,12 @@ that lets untrusted authors store and run rules also needs:
   other action, and resume with the result bound.
 - **Receipts.** A record of what was admitted, under which profiles, by which
   version of which attestations, so a judgment can be audited after the fact.
+  The verdict is designed to be recorded: it is a term, the canonical text it
+  was given for is a fixed point, and the profiles and pinned table are data
+  with a version. A host that certifies its rules can hash those four things
+  into the certificate and later prove not only that a rule ran but that this
+  judge, under these profiles, admitted it. DataGrout does this in the
+  certificate it mints for a stored rule.
 - **Attestation.** Every profile entry is a claim that a predicate is pure on a
   given engine version. Profiles are cheap to write; keeping the claims true as
   engines change is the expensive part, and it only happens where the library
@@ -209,7 +215,7 @@ What a host builds above it is the host's business.
 
 ## How it is tested
 
-A sandbox is only as good as the attempts made against it, so the suite is
+A boundary is only as good as the attempts made against it, so the suite is
 adversarial by construction and all of it runs under `make test`:
 
 | Suite | What it proves |

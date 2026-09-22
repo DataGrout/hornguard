@@ -7,8 +7,9 @@ and there are no backports.
 
 ## Reporting
 
-Hornguard is a sandbox. A bypass in it is a vulnerability in every deployment
-that trusts it, so please do not open a public issue for one.
+Hornguard is the admission boundary of a sandbox. A bypass in it is a
+vulnerability in every deployment that trusts it, so please do not open a
+public issue for one.
 
 Report privately through GitHub's private vulnerability reporting on this
 repository (Security → Report a vulnerability). Reports are received and
