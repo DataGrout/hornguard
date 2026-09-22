@@ -11,6 +11,7 @@
 
 :- use_module(library(plunit)).
 :- use_module(library(lists)).
+:- use_module(library(time)).
 :- use_module('../prolog/hornguard').
 
 :- dynamic fixture/6.          % Kind, Id, Backend, Profiles, Term, Expected
@@ -213,5 +214,29 @@ test(defer_unknown_combines_with_profile_needs,
 test(goal_is_never_bound, [true(G == f(X, Y))]) :-
     G = f(X, Y),
     hornguard_admit(iso, [iso], (X = 1, Y = 2), _).
+
+% The judge must not be stallable by the shape of a program. A dense
+% dependency graph — every predicate calling every other — once took the
+% stratification check exponential time: eleven predicates took seconds and
+% fourteen never finished. Sixty must finish comfortably inside the limit.
+test(dense_program_stratifies_promptly, [true(R = stratified(_))]) :-
+    dense_program(60, Clauses),
+    call_with_time_limit(10, hornguard_stratification(Clauses, R)).
+
+test(dense_program_with_negative_cycle_is_found_promptly, [true(R = unstratified(_, _))]) :-
+    dense_program(60, Clauses0),
+    Clauses = [ (p1(x) :- \+ p2(x)) | Clauses0 ],
+    call_with_time_limit(10, hornguard_stratification(Clauses, R)).
+
+dense_program(N, [ (q(x) :- \+ p1(x)) | Clauses ]) :-
+    numlist(1, N, Is),
+    findall((H :- B),
+            ( member(I, Is), atom_concat(p, I, PI), H =.. [PI, x],
+              findall(G, ( member(J, Is), J \== I, atom_concat(p, J, PJ), G =.. [PJ, x] ), Gs),
+              conj(Gs, B) ),
+            Clauses).
+
+conj([G], G) :- !.
+conj([G|Gs], (G, B)) :- conj(Gs, B).
 
 :- end_tests(policy).

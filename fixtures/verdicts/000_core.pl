@@ -107,3 +107,16 @@ verdict(core_evaluable_in_meta,    iso, [iso], findall(T, T is realtime, _),
         refused(escape_attempt, evaluable(realtime/0) + depth(1))).
 verdict(core_evaluable_pure,       iso, [iso], (_ is 2 ** 10 + max(1, 2), 3 =:= 1 + 2), admit).
 verdict(core_evaluable_as_data,    iso, [iso], _ = cputime, admit).
+
+%% A coroutine runs its goal at a later unification, in whoever's code path
+%% performs it. The goal would be judged; the moment would not. Pinned.
+verdict(core_pinned_freeze,        iso, [iso], freeze(X, atom(X)),
+        refused(capability_probe, pinned(deferred_execution))).
+verdict(core_pinned_when_nested,   iso, [iso], findall(X, when(ground(X), atom(X)), _),
+        refused(escape_attempt, pinned(deferred_execution) + depth(1))).
+
+%% State one author sets and another author's query reads.
+verdict(core_pinned_set_random,    iso, [iso], set_random(seed(1)),
+        refused(capability_probe, pinned(shared_state))).
+verdict(core_pinned_tables,        iso, [iso], abolish_all_tables,
+        refused(capability_probe, pinned(shared_state))).

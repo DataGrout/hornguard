@@ -24,7 +24,11 @@ under the `evasion` class with a `reader(Reason)` rule.
 Handshake: on start the worker writes
 
     {"hello":"hornguard","protocol":1,"engine":"swi","version":"9.2.9",
-     "profiles":[...]}
+     "profiles":[...],"profiles_engine":"9.2.9","engine_matches_profiles":true}
+
+`profiles_engine` is the engine version the generated swi profile records;
+an attestation of purity is per engine version, so a host running on
+another one is told at the handshake.
 
 Requests carry an `id` (echoed), an `op`, and op-specific fields:
 
@@ -88,7 +92,28 @@ hello :-
     current_prolog_flag(version_data, swi(Ma, Mi, Pa, _)),
     format(atom(V), "~w.~w.~w", [Ma, Mi, Pa]),
     catch(hornguard_profiles(Ps), _, Ps = []),
-    reply(_{hello: hornguard, protocol: P, engine: swi, version: V, profiles: Ps}).
+    profiles_engine(PE),
+    ( PE == V -> Match = true ; Match = false ),
+    reply(_{hello: hornguard, protocol: P, engine: swi, version: V, profiles: Ps,
+            profiles_engine: PE, engine_matches_profiles: Match}).
+
+%   The generated swi profile records the engine version it was reviewed
+%   against. An attestation of purity is per engine version, so a host
+%   running the judge on a different one is trusting attestations made
+%   elsewhere; the handshake says so, and the host decides what that means.
+profiles_engine(Version) :-
+    catch(( hornguard:hg_default_dir(Dir),
+            directory_file_path(Dir, 'swi.pl', File),
+            read_file_to_string(File, S, []),
+            sub_string(S, B, _, _, "against SWI-Prolog "),
+            string_length("against SWI-Prolog ", L),
+            Start is B + L,
+            sub_string(S, Start, _, 0, Rest),
+            split_string(Rest, ".\n", "", [Ma, Mi, Pa|_]),
+            atomic_list_concat([Ma, Mi, Pa], '.', Version) ),
+          _, Version = unknown),
+    !.
+profiles_engine(unknown).
 
 loop :-
     read_line_to_string(user_input, Line),

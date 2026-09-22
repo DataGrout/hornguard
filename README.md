@@ -43,7 +43,8 @@ enumerable set. So Hornguard walks the term and asks, at every call position:
 2. Is it module-qualified? Refused. The sandbox has one module.
 3. Is it in a pinned class (process, files, streams, loading, database mutation,
    foreign code, threads, network, flags, reflection, parsing, destructive
-   state, output, timing)? Refused, before any profile is consulted.
+   state, output, timing, deferred execution, shared engine state)? Refused,
+   before any profile is consulted.
 4. Does a profile in force allow it? Then judge its goal arguments one level
    deeper, completing closures to their called arity first, so
    `maplist(assertz, L)` is refused because `assertz(_)` is.

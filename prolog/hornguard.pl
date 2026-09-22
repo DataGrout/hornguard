@@ -86,6 +86,7 @@ backend layer, not the judge.
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 :- use_module(library(error)).
+:- use_module(library(ugraphs)).
 
 :- dynamic hg_allow/2,          % Profile, Name/Arity
            hg_meta/2,           % Profile, Spec (meta_predicate notation)
@@ -834,15 +835,31 @@ hornguard_stratification(Clauses0, Result) :-
     hg_program_heads(Clauses, Defined),
     findall(E, ( member(C, Clauses), hg_clause_edge(C, Defined, E) ), Edges0),
     sort(Edges0, Edges),
+    % Reachability comes from one transitive closure over the dependency
+    % graph, polynomial in its size. Enumerating paths with a visited list,
+    % which this once did, is exponential on a dense graph: eleven mutually
+    % referencing predicates took seconds and fourteen did not finish, which
+    % made a small stored program a way to stall the judge.
+    findall(H-C, member(edge(H, C, _), Edges), Pairs0),
+    sort(Pairs0, Pairs),
+    vertices_edges_to_ugraph(Defined, Pairs, Graph),
+    transitive_closure(Graph, Closure),
     (   member(edge(H, C, neg), Edges),
-        hg_reaches(C, H, Edges)
+        hg_closure_reaches(Closure, C, H)
     ->  findall(P, ( member(P, Defined),
-                     ( P == H ; hg_reaches(H, P, Edges), hg_reaches(P, H, Edges) ) ), Ms0),
+                     ( P == H
+                     ; hg_closure_reaches(Closure, H, P), hg_closure_reaches(Closure, P, H)
+                     ) ), Ms0),
         sort(Ms0, Members),
         Result = unstratified(Members, H-C)
     ;   hg_strata(Defined, Edges, Strata),
         Result = stratified(Strata)
     ).
+
+%   From reaches To by at least one edge.
+hg_closure_reaches(Closure, From, To) :-
+    memberchk(From-Successors, Closure),
+    memberchk(To, Successors).
 
 hg_clause_edge((H :- B), Defined, edge(HInd, CInd, Sign)) :-
     hg_clause_head_indicator(H, HInd),
@@ -988,23 +1005,6 @@ hg_check_floundering(true, Term) :-
     (   Goals = [G|_]
     ->  throw(hg_refused(domain_error(safe_negation, G), semantics, floundering(G)))
     ;   true
-    ).
-
-%   Reachability over the dependency graph by at least one edge. Programs
-%   stored in a namespace are small; a per-path visited list is enough.
-hg_reaches(From, To, Edges) :-
-    member(edge(From, Next, _), Edges),
-    (   Next == To
-    ->  true
-    ;   hg_reach_from(Next, To, Edges, [From])
-    ).
-
-hg_reach_from(X, To, Edges, Visited) :-
-    \+ memberchk(X, Visited),
-    member(edge(X, Next, _), Edges),
-    (   Next == To
-    ->  true
-    ;   hg_reach_from(Next, To, Edges, [X|Visited])
     ).
 
 %   stratum(P) = max over dependencies of stratum(Q) for a positive edge and

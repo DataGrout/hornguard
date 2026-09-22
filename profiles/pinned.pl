@@ -153,6 +153,20 @@ pinned(streams, print_message_lines/_).
 pinned(streams, listing/_).
 pinned(destructive_state, nb_current/_).
 
+%% Two classes the walk cannot see through, pinned so no profile reopens them
+%% by accident. A coroutine runs an author's goal later, at a unification the
+%% host performs, in the host's own code path: the goal was judged, but when
+%% and where it runs was not. Shared engine state is anything one author can
+%% set that another author's query then reads: the random generator's seed,
+%% the answer tables.
+pinned(deferred_execution, freeze/_).
+pinned(deferred_execution, when/_).
+pinned(deferred_execution, call_residue_vars/_).
+pinned(shared_state, set_random/_).
+pinned(shared_state, abolish_all_tables/_).
+pinned(shared_state, abolish_table_subgoals/_).
+pinned(shared_state, abolish_module_tables/_).
+
 %% Arithmetic functions are a second language inside the first, and the walk
 %% checks the expressions of is/2 and the comparisons for these. The two that
 %% read the clock hand an author the timing channel the `timing` pin closes for

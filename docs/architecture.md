@@ -250,7 +250,11 @@ profile, an `allow` naming one is a policy load error, and reopening one takes
 an explicit `unpin` that is logged at every load and undone by the next policy:
 
 database, streams, filesystem, loading, process, foreign, threads, network,
-flags and operators, reflection, parsing, destructive state, format, timing.
+flags and operators, reflection, parsing, destructive state, format, timing,
+deferred execution (coroutines: the goal is judged, but it runs later at a
+unification the host performs, in the host's code path), shared engine state
+(the random seed, the answer tables: what one author sets and another's query
+reads).
 
 `profiles/pinned.pl` lists the indicators. Name-only pins (`open/_`) are
 deliberate here and only here: a single unpinned arity of `open` or `format` is
