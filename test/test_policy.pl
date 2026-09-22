@@ -93,6 +93,38 @@ test(private_profile_cannot_reopen_a_pin, [throws(error(permission_error(allow, 
     hornguard:hg_default_dir(D),
     hornguard_load_profiles([D, Dir]).
 
+%   A host that builds its own engine ships a manifest for it. Deferral has
+%   to read that manifest, or defer_unknown(true) turns every builtin the
+%   host declared into an admit_needs and the engine surface widens by
+%   exactly the predicates the manifest was written to describe. On swi the
+%   engine is asked directly and this always held; on a manifest backend it
+%   did not, because a separate helper answered the same question for swi
+%   alone. The pair below pins it from both sides.
+private_engine_dir(Dir) :-
+    tmp_file(hg_private_engine, Dir),
+    make_directory(Dir),
+    directory_file_path(Dir, 'host_engine.pl', F),
+    setup_call_cleanup(open(F, write, S),
+        format(S, "engine(scryer, host_engine_builtin/1).~n", []),
+        close(S)).
+
+with_private_engine(Goal) :-
+    private_engine_dir(P),
+    hornguard:hg_default_dir(D),
+    hornguard_load_profiles([D, P]),
+    call(Goal).
+
+test(defer_unknown_does_not_widen_a_manifest_backend,
+     [true(V = refused(permission_error(execute, goal, host_engine_builtin/1),
+                       benign_miss, unknown))]) :-
+    with_private_engine(
+        hornguard_admit(scryer, [iso], host_engine_builtin(x), [defer_unknown(true)], V)).
+
+test(defer_unknown_still_defers_what_no_manifest_claims,
+     [true(V == admit_needs([predicate(stored_later/1)]))]) :-
+    with_private_engine(
+        hornguard_admit(scryer, [iso], stored_later(x), [defer_unknown(true)], V)).
+
 :- end_tests(profile_dirs).
 
 :- begin_tests(backends).

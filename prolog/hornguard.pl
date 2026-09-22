@@ -516,7 +516,7 @@ hg_indicator(G, Ind, D, Ctx, N0, N) :-
         ->  hg_apply_spec(Spec, G, D, Ctx, [profile(Profile)|N0], N)
         ;   N = [profile(Profile)|N0]
         )
-    ;   hg_deferrable(Ctx, G)
+    ;   hg_deferrable(Ctx, G, Ind)
     ->  N = [predicate(Ind)|N0]
     ;   hg_unknown_reason(Ctx, G, Ind, Reason),
         throw(hg_refused(Reason, benign_miss, unknown))
@@ -527,11 +527,15 @@ hg_indicator(G, Ind, D, Ctx, N0, N) :-
 %   need rather than refused, so a rule may be stored before the rules it
 %   calls. An indicator the engine does define but no profile allows stays
 %   a refusal: deferral never widens the engine surface.
-hg_deferrable(ctx(Backend, _, _, _, true), G) :-
-    \+ hg_engine_defined(Backend, G).
-
-hg_engine_defined(swi, G) :-
-    catch(predicate_property(G, defined), _, fail).
+%
+%   What the engine defines is hg_engine_defines/3's answer and nothing
+%   else's, so deferral and the refusal reason can never disagree about it.
+%   Keep it that way: a second predicate answering the same question for
+%   swi alone once lived here, and every manifest backend deferred what it
+%   should have refused.
+hg_deferrable(Ctx, G, Ind) :-
+    Ctx = ctx(_, _, _, _, true),
+    \+ hg_engine_defines(Ctx, G, Ind).
 
 %   Reflection is reconnaissance wherever it appears. Any other pinned
 %   class is a probe at the top level and an escape attempt once it is

@@ -73,6 +73,9 @@ MUTATIONS = [
     ("control_head_allowed", "a clause may define a control construct",
      "    (   hg_control_indicator(Ind)\n    ->  throw(",
      "    (   fail, hg_control_indicator(Ind)\n    ->  throw("),
+    ("defer_ignores_the_manifest", "deferral does not ask what the engine defines",
+     "hg_deferrable(Ctx, G, Ind) :-\n    Ctx = ctx(_, _, _, _, true),\n    \\+ hg_engine_defines(Ctx, G, Ind).",
+     "hg_deferrable(Ctx, _, _) :-\n    Ctx = ctx(_, _, _, _, true)."),
 ]
 
 
