@@ -1,9 +1,13 @@
 # Hornguard
 
-**A firewall for Prolog.** Hornguard stands between an untrusted author, human
-or agent, and a Prolog engine. Every goal and every stored clause passes through
-it before it runs: admitted, admitted subject to something the host must supply,
-or refused with a reason and a classification. It never executes what it judges.
+**A firewall for Prolog.** Hornguard stands between an untrusted author and a
+Prolog engine. The author it was built for is an AI agent writing rules and
+queries into a shared engine: an agent that may be mistaken, may be following
+injected instructions it took for its user's, or may be operated by someone
+whose goal is the engine itself. Every goal and every stored clause passes
+through Hornguard before it runs: admitted, admitted subject to something the
+host must supply, or refused with a reason and a classification. It never
+executes what it judges.
 
 It is a firewall in the strict sense. The default is deny. Every rule is an
 allow rule. A set of capability classes is pinned shut and no profile can
@@ -87,7 +91,12 @@ V = refused(domain_error(stratified_program, [p/1, r/1]),
             semantics, unstratified([p/1, r/1], p/1-r/1)).
 ```
 
-The classes matter as much as the verdict. `capability_probe` is a pinned
+The classes matter as much as the verdict, and they matter most when the
+author is an agent. A model that has been told to fetch a file will try
+`open/3`, then `read_term/2` inside a `findall`, then build the goal from
+atoms and `call` it, each attempt shaped by the last refusal. To the host every
+one of those is a stopped goal; to an operator the sequence is the difference
+between a confused agent and an operated one. `capability_probe` is a pinned
 predicate at the top level. `escape_attempt` is one hidden inside a
 meta-argument, where the author expected the outer goal to pass. `reconnaissance`
 is reflection. `semantics` is a program with no single meaning and is not a
@@ -113,7 +122,7 @@ V = admit_with((member(G, Gs), hornguard_call(G), maplist(hornguard_call(P), Xs)
 `hornguard_call/N` judges its goal under the loaded policy, plus whatever the
 host set with `hornguard_set_runtime_context/1` for the namespace whose rules
 are running, and only then calls it. A refusal is thrown as
-`error(Reason, hornguard(Class, dynamic(Rule)))`, and `catch/3` in a guarded
+`error(Reason, hornguard(Class, runtime(Rule)))`, and `catch/3` in a guarded
 term becomes `hornguard_catch/3`, which cannot swallow it, a time limit, or a
 resource error. Bound goals are still judged statically, at their depth, with
 their classification; the runtime judge only takes what the static one could

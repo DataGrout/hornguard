@@ -35,9 +35,17 @@ per-engine, tested, and hard to weaken by accident.
 
 Trusted: the host process, its operator, and the policy file. Untrusted: every
 goal submitted for execution and every clause submitted for storage, whoever
-or whatever wrote it. Authors are assumed adversarial and adaptive. Protected:
-the host process, platform code loaded in the engine, other tenants sharing a
-worker, and the engine's availability.
+or whatever wrote it. The author Hornguard is designed around is an AI agent
+writing Prolog into a multi-tenant engine, and three of its failure modes look
+identical at the boundary: an agent that is mistaken about what it may do, an
+agent following instructions injected into its context and taken for its
+user's, and an agent operated by someone attacking the engine. The judge does
+not try to tell them apart in the verdict; it refuses all three the same way
+and leaves the telling-apart to the classification and to the host's view of
+the sequence. Authors are therefore assumed adversarial and adaptive, because
+the second and third are, and the first costs nothing extra to treat that way.
+Protected: the host process, platform code loaded in the engine, other tenants
+sharing a worker, and the engine's availability.
 
 Out of scope: the content of admitted facts (a fact can carry a prompt
 injection and remain an inert term; content screening is a separate layer),
@@ -430,7 +438,7 @@ policy plus `hornguard_set_runtime_context/1` (the namespace's `allow`,
 typically, set by the host from a position the author cannot reach), in
 judged mode again so a goal carrying its own unbound sink is rewritten and
 judged when that sink runs. A goal still unbound at its sink is refused
-there. A refusal is `error(Reason, hornguard(Class, dynamic(Rule)))`;
+there. A refusal is `error(Reason, hornguard(Class, runtime(Rule)))`;
 `hornguard_catch/3` rethrows it, along with time limits, resource errors and
 execute permission errors, so an author's catch-all cannot hide a refusal or
 outlive a budget. A host that wants the runtime judgment made outside the

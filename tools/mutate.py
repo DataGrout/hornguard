@@ -59,7 +59,7 @@ MUTATIONS = [
      "hg_guard_goal(V, _, hornguard_call(V)) :-\n    var(V), !.",
      "hg_guard_goal(V, _, V) :-\n    var(V), !."),
     ("guarded_catch_swallows_refusals", "hornguard_catch/3 catches a runtime refusal",
-     "hg_uncatchable(error(_, hornguard(_, _))).\n", ""),
+     "hg_uncatchable(error(_, Ctx)) :- nonvar(Ctx), Ctx = hornguard(_, _).\n", ""),
     ("defining_unpins", "defining/1 lets a clause head redefine a pinned predicate",
      "    ;   hg_pinned(Class, Ind)\n    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))\n    ;   hg_trusted(Ind, Ctx, _)",
      "    ;   hg_pinned(Class, Ind), \\+ hg_defining(_, Ctx)\n    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))\n    ;   hg_trusted(Ind, Ctx, _)"),

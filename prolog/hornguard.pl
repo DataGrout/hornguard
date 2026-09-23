@@ -1311,7 +1311,7 @@ hg_unbound_closure(F) :- compound(F), functor(F, call, _).
 %   it. In judged mode, so a goal that itself carries an unbound sink is
 %   rewritten and judged again when that sink runs. A refusal is thrown as
 %
-%       error(Reason, hornguard(Class, dynamic(Rule)))
+%       error(Reason, hornguard(Class, runtime(Rule)))
 %
 %   which hornguard_catch/3 will not swallow. A host that wants the judging
 %   done outside the engine defines hornguard:runtime_judge_hook/2.
@@ -1370,9 +1370,9 @@ hg_runtime_proceed(admit_with(Guarded), M, _) :- !,
     call(M:Guarded).
 hg_runtime_proceed(admit_needs(Needs), _, G) :- !,
     ( callable(G) -> functor(G, N, A), Ind = N/A ; Ind = G ),
-    throw(error(permission_error(execute, goal, Ind), hornguard(benign_miss, dynamic(needs(Needs))))).
+    throw(error(permission_error(execute, goal, Ind), hornguard(benign_miss, runtime(needs(Needs))))).
 hg_runtime_proceed(refused(Reason, Class, Rule), _, _) :-
-    throw(error(Reason, hornguard(Class, dynamic(Rule)))).
+    throw(error(Reason, hornguard(Class, runtime(Rule)))).
 
 %!  hornguard_set_runtime_context(+Options) is det.
 %
@@ -1407,7 +1407,9 @@ hornguard_catch(Goal, Catcher, Recovery) :-
           ;   throw(Ball)
           )).
 
-hg_uncatchable(error(_, hornguard(_, _))).
+%   Guarded on the context being bound: an author's own throw(error(X, _))
+%   carries an unbound one and must stay catchable.
+hg_uncatchable(error(_, Ctx)) :- nonvar(Ctx), Ctx = hornguard(_, _).
 hg_uncatchable(time_limit_exceeded).
 hg_uncatchable(error(resource_error(_), _)).
 hg_uncatchable(error(permission_error(execute, _, _), _)).

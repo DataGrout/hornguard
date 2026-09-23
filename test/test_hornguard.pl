@@ -270,7 +270,7 @@ test(no_clause_may_define_the_runtime_calls,
 % The runtime half: hornguard_call/N judges under the loaded policy and the
 % runtime context, then calls, and its refusal cannot be caught.
 test(runtime_refuses_a_pinned_goal,
-     [throws(error(permission_error(execute, goal, shell/1), hornguard(capability_probe, dynamic(pinned(process)))))]) :-
+     [throws(error(permission_error(execute, goal, shell/1), hornguard(capability_probe, runtime(pinned(process)))))]) :-
     hornguard_call(shell(x)).
 
 test(runtime_completes_and_calls_a_pure_closure, [true]) :-
@@ -292,11 +292,11 @@ test(an_unbound_sink_refusal_passes_through_the_guarded_catch,
     hornguard_catch(hornguard_call(_G), _, true).
 
 test(runtime_refuses_a_goal_still_unbound_at_its_sink,
-     [throws(error(instantiation_error, hornguard(escape_attempt, dynamic(unbound_goal))))]) :-
+     [throws(error(instantiation_error, hornguard(escape_attempt, runtime(unbound_goal))))]) :-
     hornguard_call(call(_H)).
 
 test(runtime_refuses_a_bare_unbound_goal,
-     [throws(error(instantiation_error, hornguard(escape_attempt, dynamic(unbound_goal))))]) :-
+     [throws(error(instantiation_error, hornguard(escape_attempt, runtime(unbound_goal))))]) :-
     hornguard_call(_V).
 
 test(guarded_catch_still_catches_ordinary_errors, [true]) :-
@@ -305,8 +305,13 @@ test(guarded_catch_still_catches_ordinary_errors, [true]) :-
 test(guarded_catch_rethrows_what_its_catcher_does_not_match, [throws(oops)]) :-
     hornguard_catch(throw(oops), other, true).
 
+% An author's own error term has an unbound context. Only a refusal, whose
+% context is hornguard(_, _), is uncatchable; this must stay catchable.
+test(guarded_catch_still_catches_an_authors_error_term, [true]) :-
+    hornguard_catch(throw(error(mine, _)), error(mine, _), true).
+
 test(runtime_pins_evaluables_too,
-     [throws(error(permission_error(evaluate, evaluable, cputime/0), hornguard(_, dynamic(evaluable(cputime/0)))))]) :-
+     [throws(error(permission_error(evaluate, evaluable, cputime/0), hornguard(_, runtime(evaluable(cputime/0)))))]) :-
     hornguard_call(_ is cputime).
 
 test(runtime_context_admits_the_namespaces_own_predicates, [true(Outcome == existence_not_refusal)]) :-
@@ -318,7 +323,7 @@ test(runtime_context_admits_the_namespaces_own_predicates, [true(Outcome == exis
 
 test(a_host_hook_decides_when_defined,
      [cleanup(retractall(hornguard:runtime_judge_hook(_, _))),
-      throws(error(hooked, hornguard(evasion, dynamic(hook))))]) :-
+      throws(error(hooked, hornguard(evasion, runtime(hook))))]) :-
     assertz(hornguard:runtime_judge_hook(_, refused(hooked, evasion, hook))),
     hornguard_call(atom(a)).
 
