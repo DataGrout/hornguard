@@ -19,7 +19,7 @@
 //!     .spawn()?;
 //!
 //! match hg.judge_goal("findall(X, member(X, [a, b]), L)")? {
-//!     Verdict::Admit { canonical } => {
+//!     Verdict::Admit { canonical } | Verdict::AdmitWith { canonical } => {
 //!         // Hand `canonical` to the engine, never the author's text.
 //!         println!("ok: {canonical}");
 //!     }
@@ -90,6 +90,8 @@ struct Defaults {
     profiles: Option<Vec<String>>,
     strict_negation: Option<bool>,
     defer_unknown: Option<bool>,
+    dynamic_dispatch: Option<bool>,
+    defining: Option<Vec<String>>,
     allow: Option<Vec<String>>,
     trust: Option<Vec<(String, String)>>,
 }
@@ -189,6 +191,13 @@ impl Hornguard {
         if let Some(v) = self.defaults.defer_unknown {
             opts.insert("defer_unknown".into(), json!(v));
         }
+        if let Some(v) = self.defaults.dynamic_dispatch {
+            let mode = if v { "judged" } else { "refused" };
+            opts.insert("dynamic_dispatch".into(), json!(mode));
+        }
+        if let Some(d) = &self.defaults.defining {
+            opts.insert("defining".into(), json!(d));
+        }
         if let Some(a) = &self.defaults.allow {
             opts.insert("allow".into(), json!(a));
         }
@@ -277,6 +286,9 @@ fn verdict_from(resp: verdict::Response) -> Result<Verdict> {
         .ok_or_else(|| Error::Malformed("response had no verdict".into()))?;
     match verdict {
         "admit" => Ok(Verdict::Admit {
+            canonical: resp.canonical.unwrap_or_default(),
+        }),
+        "admit_with" => Ok(Verdict::AdmitWith {
             canonical: resp.canonical.unwrap_or_default(),
         }),
         "admit_needs" => Ok(Verdict::AdmitNeeds {
@@ -379,6 +391,31 @@ impl Builder {
     /// calls. Never widens the engine surface.
     pub fn defer_unknown(mut self, on: bool) -> Self {
         self.defaults.defer_unknown = Some(on);
+        self
+    }
+
+    /// Judge dynamic dispatch at the sink instead of refusing it. Off, the
+    /// default, an unbound goal or closure in call position is refused. On,
+    /// it is rewritten to a call the judge sees again at the moment it runs,
+    /// and the verdict is [`Verdict::AdmitWith`] carrying the rewritten term:
+    /// run that, never the original. Nothing runs unjudged either way; this
+    /// only moves the judgment of what cannot be known statically to when it
+    /// can.
+    pub fn dynamic_dispatch(mut self, judged: bool) -> Self {
+        self.defaults.dynamic_dispatch = Some(judged);
+        self
+    }
+
+    /// Profiles whose definitions the judged program *is*. A host installing
+    /// a battery's clauses as platform code names the battery's profile here,
+    /// so its heads are the definitions the profile promises rather than
+    /// shadows of them.
+    pub fn defining<I, S>(mut self, profiles: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.defaults.defining = Some(profiles.into_iter().map(Into::into).collect());
         self
     }
 

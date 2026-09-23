@@ -17,7 +17,7 @@ let mut hg = Hornguard::builder()
 
 match hg.judge_goal("findall(X, member(X, [a, b]), L)")? {
     // Hand `canonical` to the engine, never the author's text.
-    Verdict::Admit { canonical } => run(&canonical),
+    Verdict::Admit { canonical } | Verdict::AdmitWith { canonical } => run(&canonical),
     Verdict::AdmitNeeds { needs, .. } => println!("needs {needs:?}"),
     Verdict::Refused { class, rule, .. } => println!("refused: {class} ({rule})"),
 }
@@ -48,6 +48,14 @@ The worker also reads the author's text, under the target backend's reader
 flags, and returns admitted terms in operator-free canonical form with the
 author's variable names preserved. Hand the engine that, not the original
 text, and the engine never parses anything an author wrote.
+
+## Dynamic dispatch
+
+By default an unbound goal in call position is refused. With
+`.dynamic_dispatch(true)` on the builder it is rewritten instead, to a call the
+judge sees again at the moment it runs, and the verdict is `Verdict::AdmitWith`
+carrying the rewritten term as `canonical`. Run that, never the original; the
+engine needs the Hornguard pack loaded for `hornguard_call/N` to resolve.
 
 ## What this crate does not do
 

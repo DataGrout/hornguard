@@ -193,6 +193,46 @@ fn a_trusted_host_predicate_still_has_its_goal_arguments_judged() {
 }
 
 #[test]
+fn judged_dynamic_dispatch_rewrites_the_sink_instead_of_refusing() {
+    let mut hg = Hornguard::builder()
+        .home(home())
+        .profiles(["iso", "prologue"])
+        .dynamic_dispatch(true)
+        .spawn()
+        .unwrap();
+    let v = hg
+        .judge_goal("member(G, Goals), call(G), maplist(P, Xs)")
+        .unwrap();
+    assert!(
+        v.is_admitted(),
+        "admit_with is a yes for the rewritten term"
+    );
+    match &v {
+        Verdict::AdmitWith { canonical } => {
+            assert!(v_contains(canonical, "hornguard_call(G)"));
+            assert!(v_contains(canonical, "maplist(hornguard_call(P),Xs)"));
+        }
+        other => panic!("expected admit_with, got {other:?}"),
+    }
+    // A goal the judge can see is still refused statically, at its depth.
+    let v = hg
+        .judge_goal("findall(H, current_prolog_flag(home, H), L)")
+        .unwrap();
+    assert!(matches!(v, Verdict::Refused { .. }));
+    // And without the option the default holds.
+    let mut strict = judge();
+    let v = strict.judge_goal("call(G)").unwrap();
+    match v {
+        Verdict::Refused { rule, .. } => assert_eq!(rule, "unbound_goal"),
+        other => panic!("expected a refusal, got {other:?}"),
+    }
+}
+
+fn v_contains(canonical: &str, needle: &str) -> bool {
+    canonical.replace(' ', "").contains(needle)
+}
+
+#[test]
 fn a_clause_may_not_define_a_trusted_host_predicate() {
     let mut hg = Hornguard::builder()
         .home(home())

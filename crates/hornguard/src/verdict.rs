@@ -12,6 +12,15 @@ pub enum Verdict {
     /// the engine; the author's text should not cross.
     Admit { canonical: String },
 
+    /// Admissible as rewritten. Under [`Builder::dynamic_dispatch`] the
+    /// judge does not refuse an unbound goal or closure; it rewrites it to a
+    /// call the judge sees again at the moment it runs. `canonical` is that
+    /// rewritten term, and it is the only thing that may run: the original
+    /// was never admitted.
+    ///
+    /// [`Builder::dynamic_dispatch`]: crate::Builder::dynamic_dispatch
+    AdmitWith { canonical: String },
+
     /// Admissible once the host satisfies each [`Need`]. `canonical` is
     /// already available: the term itself is fine, something around it is
     /// missing.
@@ -32,10 +41,11 @@ pub enum Verdict {
 }
 
 impl Verdict {
-    /// True for [`Verdict::Admit`] only. [`Verdict::AdmitNeeds`] is not yet a
-    /// yes: the host has something to do first.
+    /// True for [`Verdict::Admit`] and [`Verdict::AdmitWith`], the two
+    /// verdicts whose `canonical` may run as it stands. [`Verdict::AdmitNeeds`]
+    /// is not yet a yes: the host has something to do first.
     pub fn is_admitted(&self) -> bool {
-        matches!(self, Verdict::Admit { .. })
+        matches!(self, Verdict::Admit { .. } | Verdict::AdmitWith { .. })
     }
 
     pub fn is_refused(&self) -> bool {
@@ -49,7 +59,9 @@ impl Verdict {
     /// can be mapped back to what the author wrote.
     pub fn canonical(&self) -> Option<&str> {
         match self {
-            Verdict::Admit { canonical } | Verdict::AdmitNeeds { canonical, .. } => Some(canonical),
+            Verdict::Admit { canonical }
+            | Verdict::AdmitWith { canonical }
+            | Verdict::AdmitNeeds { canonical, .. } => Some(canonical),
             Verdict::Refused { .. } => None,
         }
     }

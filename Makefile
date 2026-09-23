@@ -54,6 +54,14 @@ manifests:
 gen-profiles:
 	$(SWIPL) -q -g gen_swi_profiles -t halt tools/gen_swi_profiles.pl
 
+## Judge Prolog source files as a host would judge a library before installing
+## it: every clause, then the file as a program. FILES is a space-separated list.
+##   make judge FILES="path/a.pl path/b.pl" [JUDGE_OPTS="[dynamic_dispatch(judged)]"]
+JUDGE_OPTS ?= []
+judge:
+	@test -n "$(FILES)" || { echo "usage: make judge FILES=\"a.pl b.pl\""; exit 2; }
+	$(SWIPL) -q -g "judge_files([$(shell echo $(FILES) | sed "s/[^ ]*/'&'/g; s/ /,/g")], $(JUDGE_OPTS))" -t halt tools/judge_files.pl
+
 ## Run the judge worker on stdin/stdout.
 worker:
 	$(SWIPL) -q prolog/hornguard_worker_main.pl

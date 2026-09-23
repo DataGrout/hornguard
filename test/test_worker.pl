@@ -152,6 +152,30 @@ test(oversized_input_refused, [true(R == refused(reader(too_large)))]) :-
     length(L, 1_000_100), maplist(=(0'a), L), string_codes(S, L),
     hornguard_read(swi, S, _, R).
 
+% A host declares the operators its stored rules use in its profiles
+% directory; the reader honours them and the canonical form is operator-free.
+op_dir(Dir) :-
+    tmp_file(hg_ops, Dir), make_directory(Dir),
+    directory_file_path(Dir, 'ops.pl', F),
+    setup_call_cleanup(open(F, write, S), format(S, "op(600, xfx, ::).~n", []), close(S)).
+
+test(host_operators_reach_the_reader,
+     [cleanup(( op(0, xfx, hornguard_worker:(::)), hornguard:hg_default_dir(D0), hornguard_load_profiles(D0) )),
+      true(C == "=(X,::(a,b))")]) :-
+    op_dir(Dir),
+    hornguard:hg_default_dir(D),
+    hornguard_load_profiles([D, Dir]),
+    hornguard_ops(Ops), memberchk(op(600, xfx, ::), Ops),
+    apply_ops,
+    hornguard_read(swi, "X = a :: b .", [T], [VN], ok),
+    hornguard_canonical(T, VN, C).
+
+test(judged_mode_over_the_protocol_returns_the_guarded_canonical,
+     [true(( V == admit_with, C == "hornguard_call(G)" ))]) :-
+    hornguard_judge_text(judge_goal, "call(G)",
+                         [backend(iso), profiles([iso]), dynamic_dispatch(judged)], R),
+    get_dict(verdict, R, V), get_dict(canonical, R, C).
+
 test(programmatic_canonical_keeps_author_dollar_var_terms_as_data,
      [true(C == "f('$VAR'('Shell'),'$VAR'(3),A,A,_)")]) :-
     hornguard_canonical(f('$VAR'('Shell'), '$VAR'(3), X, X, _Y), C).

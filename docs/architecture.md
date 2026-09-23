@@ -175,6 +175,7 @@ flowchart TD
 
 ```
 admit
+admit_with(Guarded)               under dynamic_dispatch(judged): run Guarded
 admit_needs(Needs)                Needs: profile(Name) | predicate(Indicator)
 refused(Reason, Class, Rule)
 ```
@@ -397,8 +398,59 @@ hornguard_admit_program(+Clauses, -Verdict)
 hornguard_profiles(-Names)
 ```
 
+```prolog
+hornguard_rewrite(+Backend, +Term, -Guarded)  % the judged-mode rewrite alone
+hornguard_call(:Goal), hornguard_call(:Closure, ?A1, ...)   % judged when called
+hornguard_catch(:Goal, ?Catcher, :Recovery)   % catch/3 that cannot hide a refusal
+hornguard_set_runtime_context(+Options)       % profiles/allow/trust for hornguard_call
+hornguard_ops(-Ops)                           % operators the profiles declare
+```
+
 Options: `allow(Indicators)`, `trust(IndicatorSpecPairs)`,
-`strict_negation(Bool)`, `defer_unknown(Bool)`.
+`strict_negation(Bool)`, `defer_unknown(Bool)`, `dynamic_dispatch(refused |
+judged)`, `defining(Profiles)`.
+
+## Dynamic dispatch, judged at the sink
+
+Rule 1 refuses an unbound goal in call position. That is complete and it is
+also the expressiveness ceiling: no meta-interpreter, no generic rule engine,
+no `maplist(call, Goals)`. The relaxation that keeps the boundary is to judge
+twice. Under `dynamic_dispatch(judged)` the term is rewritten before it is
+judged: an unbound goal becomes `hornguard_call(G)`, an unbound closure
+`hornguard_call(C)` (completed with its arguments when the meta-predicate
+calls it), `call` as a closure `hornguard_call`, and `catch/3` becomes
+`hornguard_catch/3`. The rewrite walks the same argument positions the judge
+does, from the same meta specs, and shares the input's variables. The
+rewritten term is then judged as any term is, with the `hornguard_runtime`
+profile joined to those in force so the introduced calls are admissible and
+no stored clause may define them, and the verdict is `admit_with(Guarded)`.
+
+`hornguard_call/N` judges its goal at the moment it runs, under the loaded
+policy plus `hornguard_set_runtime_context/1` (the namespace's `allow`,
+typically, set by the host from a position the author cannot reach), in
+judged mode again so a goal carrying its own unbound sink is rewritten and
+judged when that sink runs. A goal still unbound at its sink is refused
+there. A refusal is `error(Reason, hornguard(Class, dynamic(Rule)))`;
+`hornguard_catch/3` rethrows it, along with time limits, resource errors and
+execute permission errors, so an author's catch-all cannot hide a refusal or
+outlive a budget. A host that wants the runtime judgment made outside the
+engine defines `hornguard:runtime_judge_hook/2`.
+
+What this does not change: bound goals are judged statically with their
+class and depth, the default mode is rule 1 as written, and the runtime judge
+is the same judge under the same policy. What it costs: a judgment per
+dynamic call at run time, in the engine unless the host hooks it out.
+
+## Installed libraries
+
+A library of rules a host installs into author space (a battery) is judged
+as a program with `defining(Profiles)` naming its own profile, so its heads
+are definitions rather than shadows; its exports are `allow` and `meta_spec`
+entries in that profile so authors may call them; operators it relies on are
+`op(Priority, Type, Name)` terms in the profiles directory, which the judge
+worker's reader honours (`op/3` stays pinned for authors). A library that
+meta-calls its arguments or reads clauses is judged under
+`dynamic_dispatch(judged)` and installed in its guarded form.
 
 ## Not yet built
 
@@ -407,8 +459,8 @@ Options: `allow(Indicators)`, `trust(IndicatorSpecPairs)`,
   implementation (see `crates/README.md`).
 - Enforcement: caps, isolation, the uncatchable abort, `library(sandbox)` as an
   in-engine second opinion. `hornguard_run/4` throws `not_implemented`.
-- Rewrites (a `hornguard_rewrite/3`, not yet exported): the `catch/3` wrapper
-  for backends whose abort can be caught, depth guards.
+- Rewrites beyond the judged-dispatch and `catch/3` wrappers, which are built:
+  depth guards, and an author-facing error policy applied at rewrite time.
 - Events: emission of classified refusals to a host hook, per-session probe
   thresholds, author-facing error detail as a policy setting.
 - In-engine enforcement for the `scryer` and `trealla` backends; their

@@ -7,15 +7,38 @@
             hornguard_admit_program/5,  % +Backend, +Profiles, +Clauses, +Options, -Verdict
             hornguard_stratification/2, % +Clauses, -Result
             hornguard_floundering/2,    % +ClauseOrGoal, -NegatedGoals
+            hornguard_rewrite/3,        % +Backend, +Term, -Guarded
+            hornguard_call/1,           % :Goal      judged at the moment it runs
+            hornguard_call/2,
+            hornguard_call/3,
+            hornguard_call/4,
+            hornguard_call/5,
+            hornguard_call/6,
+            hornguard_call/7,
+            hornguard_call/8,
+            hornguard_catch/3,          % :Goal, ?Catcher, :Recovery
+            hornguard_set_runtime_context/1, % +Options
             hornguard_run/4,            % +Backend, +Profiles, +Caps, +Goal
             hornguard_load_profiles/1,  % +Dir
             hornguard_load_policy/1,    % +File
             hornguard_policy/1,         % -Policy
+            hornguard_ops/1,            % -Ops
             hornguard_admit/2,          % +Goal, -Verdict        (under the loaded policy)
             hornguard_admit_clause/2,   % +Clause, -Verdict
             hornguard_admit_program/2,  % +Clauses, -Verdict
             hornguard_profiles/1        % -Names
           ]).
+
+:- meta_predicate
+    hornguard_call(0),
+    hornguard_call(1, ?),
+    hornguard_call(2, ?, ?),
+    hornguard_call(3, ?, ?, ?),
+    hornguard_call(4, ?, ?, ?, ?),
+    hornguard_call(5, ?, ?, ?, ?, ?),
+    hornguard_call(6, ?, ?, ?, ?, ?, ?),
+    hornguard_call(7, ?, ?, ?, ?, ?, ?, ?),
+    hornguard_catch(0, ?, 0).
 
 /** <module> Hornguard: default-deny firewall for untrusted Prolog
 
@@ -24,6 +47,11 @@ clause, consults the loaded profiles (allow/2, meta_spec/2) and the pinned
 class table (pinned/2), and returns a verdict:
 
   * `admit`
+  * `admit_with(Guarded)`        - under dynamic_dispatch(judged): admissible
+                                   as Guarded, the term with every unbound
+                                   goal or closure rewritten to a call the
+                                   judge sees again at the moment it runs.
+                                   Run Guarded, never the original.
   * `admit_needs(Needs)`         - admissible once the host satisfies each
                                    need: profile(Name) for a known profile
                                    not in force, predicate(Indicator) for a
@@ -79,6 +107,18 @@ first. And a clause head may not name a predicate the host trusts: the
 trusted definition is the one whose body is never walked, and a clause in
 sandboxed space would stand in for it.
 
+Rule 1 has one sanctioned relaxation. Under `dynamic_dispatch(judged)` an
+unbound goal or closure is not refused but rewritten to hornguard_call/N,
+which judges the goal under the same policy at the moment it runs and only
+then calls it, and catch/3 becomes hornguard_catch/3, which cannot swallow a
+runtime refusal. The verdict is then `admit_with(Guarded)`, and the host runs
+Guarded. Judgment happens twice, statically where the goal is known and at
+the sink where it is not; nothing runs unjudged either way. The runtime
+judge is the loaded policy plus whatever hornguard_set_runtime_context/1 has
+set (a namespace's stored predicates, typically), or a host's own
+`hornguard:runtime_judge_hook/2` when it wants the judging done in a process
+the author cannot reach.
+
 Enforcement (hornguard_run/4) is not yet implemented; it belongs to the
 backend layer, not the judge.
 */
@@ -96,8 +136,18 @@ backend layer, not the judge.
            hg_engine/2,         % Backend, Name/Arity   (what the engine defines)
            hg_enforcement/2,    % Backend, native | external | none
            hg_policy/1,         % policy(Backend, Profiles, Options, Allow, Trust)
+           hg_op/3,             % Priority, Type, Name: operators the reader honours
            hg_loaded_dir/1,
            hg_default_dir/1.
+
+%   hornguard:runtime_judge_hook(+Goal, -Verdict)
+%
+%   A host that wants hornguard_call/N judged somewhere the author's code
+%   cannot reach (its judge worker, say) defines this. Verdict is any
+%   verdict hornguard_admit/5 returns under dynamic_dispatch(judged).
+%   Dynamic as well as multifile so a host can install it at run time.
+:- multifile runtime_judge_hook/2.
+:- dynamic runtime_judge_hook/2.
 
 :- prolog_load_context(directory, Dir),
    atomic_list_concat([Dir, '/../profiles'], Rel),
@@ -142,9 +192,22 @@ hornguard_load_profiles(DirOrDirs) :-
     retractall(hg_unpinned(_, _)),
     retractall(hg_engine(_, _)),
     retractall(hg_enforcement(_, _)),
+    retractall(hg_op(_, _, _)),
     retractall(hg_loaded_dir(_)),
     forall(member(Fact, Facts), assertz(Fact)),
     assertz(hg_loaded_dir(Dirs)).
+
+%!  hornguard_ops(-Ops) is det.
+%
+%   The operators the loaded profiles declare, as op(Priority, Type, Name)
+%   terms. A host whose stored rules use an operator (a battery's `::`,
+%   say) declares it in its profiles directory; the judge worker's reader
+%   honours it, and the canonical form it emits is operator-free, so the
+%   engine never needs to know. op/3 itself stays pinned for authors.
+
+hornguard_ops(Ops) :-
+    hg_ensure_profiles,
+    findall(op(P, T, N), hg_op(P, T, N), Ops).
 
 hg_collect_profile_dir(Dir, Acc0, Acc) :-
     directory_files(Dir, Entries),
@@ -184,6 +247,8 @@ hg_profile_fact(engine(B, N/A), _, Acc, [hg_engine(B, N/A)|Acc]) :-
     atom(B), atom(N), integer(A), !.
 hg_profile_fact(enforcement(B, Kind), _, Acc, [hg_enforcement(B, Kind)|Acc]) :-
     atom(B), hg_enforcement_kind(Kind), !.
+hg_profile_fact(op(P, T, N), _, Acc, [hg_op(P, T, N)|Acc]) :-
+    integer(P), P >= 0, P =< 1200, atom(T), atom(N), !.
 hg_profile_fact((:- _), _, Acc, Acc) :- !.
 hg_profile_fact(Term, Path, _, _) :-
     throw(error(domain_error(hornguard_profile_term, Term), context(Path, _))).
@@ -406,15 +471,52 @@ hg_policy_call(Pred, Term, Verdict) :-
 hornguard_admit(Backend, Profiles, Goal, Verdict) :-
     hornguard_admit(Backend, Profiles, Goal, [], Verdict).
 
-hornguard_admit(Backend, Profiles, Goal0, Options, Verdict) :-
+hornguard_admit(Backend, Profiles0, Goal0, Options, Verdict) :-
     hg_ensure_profiles,
+    hg_dynamic_mode(Options, Mode, Profiles0, Profiles),
     hg_context(Backend, Profiles, Options, Ctx),
     hg_strict_negation(Options, Strict),
-    hg_judged(Goal0, Goal,
-              ( hg_goal(Goal, 0, Ctx, [], Needs0),
-                hg_check_floundering(Strict, Goal),
-                hg_needs_verdict(Needs0, Verdict) ),
-              Verdict).
+    hg_prepared(Mode, goal, Goal0, Ctx, Goal1, Verdict0),
+    (   nonvar(Verdict0)
+    ->  Verdict = Verdict0
+    ;   hg_judged(Goal1, Goal,
+                  ( hg_goal(Goal, 0, Ctx, [], Needs0),
+                    hg_check_floundering(Strict, Goal),
+                    hg_needs_verdict(Needs0, Verdict1) ),
+                  Verdict1),
+        hg_mode_verdict(Mode, Verdict1, Goal1, Verdict)
+    ).
+
+%   hg_prepared(+Mode, +Kind, +Term0, +Ctx, -Term, -Verdict)
+%
+%   Under judged mode, Term is Term0 with its unbound sinks rewritten; the
+%   rewrite shares Term0's variables, so a host's variable names still map.
+%   The shapes that would defeat the rewrite (a cyclic term, a term too deep
+%   to walk) are refused here, as the judge would refuse them.
+hg_prepared(refused, _, Term, _, Term, _) :- !.
+hg_prepared(judged, Kind, Term0, Ctx, Term, Verdict) :-
+    (   \+ acyclic_term(Term0)
+    ->  Term = Term0,
+        Verdict = refused(type_error(acyclic_term, cyclic), evasion, cyclic_term)
+    ;   catch(hg_guard_kind(Kind, Term0, Ctx, Term),
+              error(resource_error(What), _),
+              ( Term = Term0,
+                Verdict = refused(resource_error(What), evasion, term_depth) ))
+    ).
+
+hg_guard_kind(goal, Goal, Ctx, Guarded) :-
+    hg_guard_goal(Goal, Ctx, Guarded).
+hg_guard_kind(clause, Clause, Ctx, Guarded) :-
+    hg_guard_clause(Clause, Ctx, Guarded).
+hg_guard_kind(program, Clauses, Ctx, Guarded) :-
+    (   is_list(Clauses)
+    ->  maplist([C, G]>>hg_guard_clause(C, Ctx, G), Clauses, Guarded)
+    ;   Guarded = Clauses
+    ).
+
+hg_guard_clause((Head :- Body), Ctx, (Head :- Guarded)) :- !,
+    hg_guard_goal(Body, Ctx, Guarded).
+hg_guard_clause(Clause, _, Clause).
 
 %   hg_judged(+Term0, -Term, :Judgment, -Verdict)
 %
@@ -464,21 +566,27 @@ hg_strict_negation(Options, Strict) :-
 hornguard_admit_clause(Backend, Profiles, Clause, Verdict) :-
     hornguard_admit_clause(Backend, Profiles, Clause, [], Verdict).
 
-hornguard_admit_clause(Backend, Profiles, Clause0, Options, Verdict) :-
+hornguard_admit_clause(Backend, Profiles0, Clause0, Options, Verdict) :-
     hg_ensure_profiles,
+    hg_dynamic_mode(Options, Mode, Profiles0, Profiles),
     hg_context(Backend, Profiles, Options, Ctx),
     hg_strict_negation(Options, Strict),
-    hg_judged(Clause0, Clause,
-              ( hg_clause(Clause, Ctx, Needs0),
-                hg_check_floundering(Strict, Clause),
-                hg_needs_verdict(Needs0, Verdict) ),
-              Verdict).
+    hg_prepared(Mode, clause, Clause0, Ctx, Clause1, Verdict0),
+    (   nonvar(Verdict0)
+    ->  Verdict = Verdict0
+    ;   hg_judged(Clause1, Clause,
+                  ( hg_clause(Clause, Ctx, Needs0),
+                    hg_check_floundering(Strict, Clause),
+                    hg_needs_verdict(Needs0, Verdict1) ),
+                  Verdict1),
+        hg_mode_verdict(Mode, Verdict1, Clause1, Verdict)
+    ).
 
 hg_needs_verdict([], admit) :- !.
 hg_needs_verdict(Needs0, admit_needs(Needs)) :-
     sort(Needs0, Needs).
 
-hg_context(Backend, Profiles, Options, ctx(Backend, Profiles, Allow, Trust, Defer)) :-
+hg_context(Backend, Profiles, Options, ctx(Backend, Profiles, Allow, Trust, Defer, Defining)) :-
     must_be(atom, Backend),
     must_be(list(atom), Profiles),
     must_be(list, Options),
@@ -490,7 +598,27 @@ hg_context(Backend, Profiles, Options, ctx(Backend, Profiles, Allow, Trust, Defe
     ),
     (   memberchk(defer_unknown(D), Options) -> must_be(boolean, D), Defer = D
     ;   Defer = false
+    ),
+    (   memberchk(defining(Df), Options) -> must_be(list(atom), Df), Defining = Df
+    ;   Defining = []
     ).
+
+%   dynamic_dispatch(refused), the default, is rule 1 as written. Under
+%   judged, the term is rewritten before it is judged and the runtime profile
+%   joins the profiles in force so the rewritten calls are admissible.
+hg_dynamic_mode(Options, Mode, Profiles0, Profiles) :-
+    (   memberchk(dynamic_dispatch(M), Options)
+    ->  must_be(oneof([refused, judged]), M), Mode = M
+    ;   Mode = refused
+    ),
+    (   Mode == judged, \+ memberchk(hornguard_runtime, Profiles0)
+    ->  Profiles = [hornguard_runtime|Profiles0]
+    ;   Profiles = Profiles0
+    ).
+
+%   Under judged mode, admission of the guarded term is admission with it.
+hg_mode_verdict(judged, admit, Guarded, admit_with(Guarded)) :- !.
+hg_mode_verdict(_, Verdict, _, Verdict).
 
 %   hg_goal(+Goal, +Depth, +Ctx, +Needs0, -Needs)
 %
@@ -607,7 +735,7 @@ hg_indicator(G, Ind, D, Ctx, N0, N) :-
 %   swi alone once lived here, and every manifest backend deferred what it
 %   should have refused.
 hg_deferrable(Ctx, G, Ind) :-
-    Ctx = ctx(_, _, _, _, true),
+    Ctx = ctx(_, _, _, _, true, _),
     \+ hg_engine_defines(Ctx, G, Ind).
 
 %   Reflection is reconnaissance wherever it appears. Any other pinned
@@ -621,16 +749,16 @@ hg_pinned_report_class(_, _, escape_attempt).
 hg_depth_rule(Rule, 0, Rule) :- !.
 hg_depth_rule(Rule, D, Rule + depth(D)).
 
-hg_trusted(Ind, ctx(_, _, _, Trust, _), Spec) :-
+hg_trusted(Ind, ctx(_, _, _, Trust, _, _), Spec) :-
     memberchk(Ind-Spec, Trust).
 
-hg_in_force(Ind, ctx(_, Profiles, Allow, _, _)) :-
+hg_in_force(Ind, ctx(_, Profiles, Allow, _, _, _)) :-
     (   member(P, Profiles), hg_allow(P, Ind)
     ->  true
     ;   memberchk(Ind, Allow)
     ).
 
-hg_spec_in_force(Name/Arity, ctx(_, Profiles, _, _, _), Spec) :-
+hg_spec_in_force(Name/Arity, ctx(_, Profiles, _, _, _, _), Spec) :-
     functor(Spec, Name, Arity),
     member(P, Profiles),
     hg_meta(P, Spec), !.
@@ -708,7 +836,7 @@ hg_clause(Head, Ctx, []) :-
 %   A clause may call its own head: recursion is the normal shape of a rule.
 %   Any other sandboxed predicate has to arrive through the allow/1 option,
 %   because only the host knows what else is stored.
-hg_allow_head_in_body(Head, ctx(B, P, Allow, Trust, D), ctx(B, P, [Ind|Allow], Trust, D)) :-
+hg_allow_head_in_body(Head, ctx(B, P, Allow, Trust, D, Df), ctx(B, P, [Ind|Allow], Trust, D, Df)) :-
     functor(Head, Name, Arity),
     Ind = Name/Arity.
 
@@ -732,12 +860,18 @@ hg_head(Head, Ctx) :-
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))
     ;   hg_trusted(Ind, Ctx, _)
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(trusted)))
-    ;   hg_allow(Profile, Ind)
+    ;   hg_allow(Profile, Ind), \+ hg_defining(Profile, Ctx)
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(profile(Profile))))
     ;   true
     ).
 hg_head(Head, _) :-
     throw(hg_refused(type_error(callable, Head), benign_miss, not_callable)).
+
+%   A host judging the program that *is* a profile (a battery's clauses,
+%   installed once as platform code) names that profile in defining/1; its
+%   heads are then the definitions the profile promises, not shadows of them.
+hg_defining(Profile, ctx(_, _, _, _, _, Defining)) :-
+    memberchk(Profile, Defining).
 
 hg_control_indicator((',')/2).
 hg_control_indicator((;)/2).
@@ -768,19 +902,25 @@ hg_control_indicator((!)/0).
 hornguard_admit_program(Backend, Profiles, Clauses, Verdict) :-
     hornguard_admit_program(Backend, Profiles, Clauses, [], Verdict).
 
-hornguard_admit_program(Backend, Profiles, Clauses0, Options, Verdict) :-
+hornguard_admit_program(Backend, Profiles0, Clauses0, Options, Verdict) :-
     hg_ensure_profiles,
     must_be(list, Clauses0),
+    hg_dynamic_mode(Options, Mode, Profiles0, Profiles),
     hg_context(Backend, Profiles, Options, Ctx0),
     hg_strict_negation(Options, Strict),
-    hg_judged(Clauses0, Clauses,
-              ( hg_program_heads(Clauses, Heads),
-                hg_allow_all(Heads, Ctx0, Ctx),
-                foldl(hg_program_clause(Ctx), Clauses, [], Needs0),
-                forall(member(C, Clauses), hg_check_floundering(Strict, C)),
-                hg_check_stratified(Clauses),
-                hg_needs_verdict(Needs0, Verdict) ),
-              Verdict).
+    hg_prepared(Mode, program, Clauses0, Ctx0, Clauses1, Verdict0),
+    (   nonvar(Verdict0)
+    ->  Verdict = Verdict0
+    ;   hg_judged(Clauses1, Clauses,
+                  ( hg_program_heads(Clauses, Heads),
+                    hg_allow_all(Heads, Ctx0, Ctx),
+                    foldl(hg_program_clause(Ctx), Clauses, [], Needs0),
+                    forall(member(C, Clauses), hg_check_floundering(Strict, C)),
+                    hg_check_stratified(Clauses),
+                    hg_needs_verdict(Needs0, Verdict1) ),
+                  Verdict1),
+        hg_mode_verdict(Mode, Verdict1, Clauses1, Verdict)
+    ).
 
 hg_program_clause(Ctx, Clause, N0, N) :-
     hg_clause(Clause, Ctx, Needs),
@@ -800,7 +940,7 @@ hg_clause_head_indicator(H, Name/Arity) :-
     callable(H),
     functor(H, Name, Arity).
 
-hg_allow_all(Inds, ctx(B, P, Allow0, Trust, D), ctx(B, P, Allow, Trust, D)) :-
+hg_allow_all(Inds, ctx(B, P, Allow0, Trust, D, Df), ctx(B, P, Allow, Trust, D, Df)) :-
     append(Inds, Allow0, Allow).
 
 hg_check_stratified(Clauses) :-
@@ -1053,7 +1193,7 @@ hg_strata_edge(edge(H, C, Sign), S0-Ch0, S-Ch) :-
 %   unjudged. Only a backend that can be asked supports this; a manifest
 %   records what exists, not what is meta, so on a manifest-driven backend
 %   the profiles' specs are the whole story and must be complete.
-hg_engine_meta_gap(ctx(swi, _, _, _, _), G) :-
+hg_engine_meta_gap(ctx(swi, _, _, _, _, _), G) :-
     catch(predicate_property(G, meta_predicate(Spec)), _, fail),
     Spec =.. [_|Modes],
     member(Mode, Modes),
@@ -1073,10 +1213,204 @@ hg_unknown_reason(_, _, Ind, existence_error(procedure, Ind)).
 %   the backend's manifest otherwise. A backend with no manifest knows
 %   nothing, so everything unrecognised is an existence error and
 %   defer_unknown defers it.
-hg_engine_defines(ctx(swi, _, _, _, _), G, _) :- !,
+hg_engine_defines(ctx(swi, _, _, _, _, _), G, _) :- !,
     catch(predicate_property(G, defined), _, fail).
-hg_engine_defines(ctx(Backend, _, _, _, _), _, Ind) :-
+hg_engine_defines(ctx(Backend, _, _, _, _, _), _, Ind) :-
     hg_engine(Backend, Ind).
+
+
+		 /*******************************
+		 *    DYNAMIC DISPATCH, JUDGED  *
+		 *******************************/
+
+%!  hornguard_rewrite(+Backend, +Term, -Guarded) is det.
+%
+%   Term with every unbound goal or closure in a sink position rewritten to
+%   hornguard_call/N, and every catch/3 to hornguard_catch/3. Bound goals
+%   are left alone: the judge sees them statically. Uses the loaded profiles'
+%   meta specs and the loaded policy's trust specs to know which argument
+%   positions are sinks. hornguard_admit/5 under dynamic_dispatch(judged)
+%   does this itself and returns the result in admit_with/1; this is the
+%   same rewrite for a host that wants it separately.
+
+hornguard_rewrite(Backend, Term, Guarded) :-
+    hg_ensure_profiles,
+    hornguard_policy(policy(_, _, _, Al, Tr)),
+    hg_context(Backend, [], [allow(Al), trust(Tr)], Ctx),
+    hg_guard_goal(Term, Ctx, Guarded).
+
+%   The rewrite walks the same positions the judge does, using the same
+%   specs, and never binds a variable: the result shares the input's.
+hg_guard_goal(V, _, hornguard_call(V)) :-
+    var(V), !.
+hg_guard_goal(M:G, _, M:G) :- !.
+hg_guard_goal((A, B), Ctx, (GA, GB)) :- !,
+    hg_guard_goal(A, Ctx, GA), hg_guard_goal(B, Ctx, GB).
+hg_guard_goal((A ; B), Ctx, (GA ; GB)) :- !,
+    hg_guard_goal(A, Ctx, GA), hg_guard_goal(B, Ctx, GB).
+hg_guard_goal((A -> B), Ctx, (GA -> GB)) :- !,
+    hg_guard_goal(A, Ctx, GA), hg_guard_goal(B, Ctx, GB).
+hg_guard_goal((A *-> B), Ctx, (GA *-> GB)) :- !,
+    hg_guard_goal(A, Ctx, GA), hg_guard_goal(B, Ctx, GB).
+hg_guard_goal(V ^ G, Ctx, V ^ GG) :- !,
+    hg_guard_goal(G, Ctx, GG).
+hg_guard_goal(catch(G, E, R), Ctx, hornguard_catch(GG, E, GR)) :- !,
+    hg_guard_goal(G, Ctx, GG),
+    hg_guard_goal(R, Ctx, GR).
+hg_guard_goal(G, _, Guarded) :-
+    compound(G), G =.. [call, F|Args],
+    hg_unbound_closure(F), !,
+    Guarded =.. [hornguard_call, F|Args].
+hg_guard_goal(G, Ctx, Guarded) :-
+    callable(G),
+    functor(G, Name, Arity),
+    hg_guard_spec(Name/Arity, Ctx, Spec), !,
+    Spec =.. [_|Modes],
+    G =.. [Name|Args],
+    maplist(hg_guard_arg(Ctx), Modes, Args, GArgs),
+    Guarded =.. [Name|GArgs].
+hg_guard_goal(G, _, G).
+
+%   A trust spec from the policy, else any loaded profile's spec.
+hg_guard_spec(Ind, ctx(_, _, _, Trust, _, _), Spec) :-
+    (   memberchk(Ind-Spec0, Trust), Spec0 \== none
+    ->  Spec = Spec0
+    ;   hg_any_meta_spec(Ind, Spec)
+    ).
+
+hg_guard_arg(Ctx, 0, A, GA) :- !,
+    hg_guard_goal(A, Ctx, GA).
+hg_guard_arg(Ctx, ^, A, GA) :- !,
+    hg_guard_goal(A, Ctx, GA).
+hg_guard_arg(_, K, A, GA) :-
+    integer(K), K > 0, !,
+    hg_guard_closure(A, GA).
+hg_guard_arg(_, _, A, A).
+
+%   An unbound closure is completed and judged when it is called; so is
+%   `call` itself as a closure (maplist(call, Goals)), which is the same
+%   thing spelled differently. A bound closure the judge already completed
+%   and judged statically is left as it is.
+hg_guard_closure(C, hornguard_call(C)) :-
+    var(C), !.
+hg_guard_closure(call, hornguard_call) :- !.
+hg_guard_closure(C, G) :-
+    compound(C), C =.. [call|Args], !,
+    G =.. [hornguard_call|Args].
+hg_guard_closure(C, C).
+
+hg_unbound_closure(F) :- var(F), !.
+hg_unbound_closure(call) :- !.
+hg_unbound_closure(F) :- compound(F), functor(F, call, _).
+
+%!  hornguard_call(:Goal) is nondet.
+%!  hornguard_call(:Closure, ?A1, ...) is nondet.
+%
+%   Judge Goal under the loaded policy, plus what the host set with
+%   hornguard_set_runtime_context/1, at the moment it is called; then call
+%   it. In judged mode, so a goal that itself carries an unbound sink is
+%   rewritten and judged again when that sink runs. A refusal is thrown as
+%
+%       error(Reason, hornguard(Class, dynamic(Rule)))
+%
+%   which hornguard_catch/3 will not swallow. A host that wants the judging
+%   done outside the engine defines hornguard:runtime_judge_hook/2.
+
+hornguard_call(Goal) :-
+    hg_strip_module(Goal, M, G),
+    hg_runtime_judge(G, Verdict),
+    hg_runtime_proceed(Verdict, M, G).
+
+hornguard_call(G, A) :- hg_extend_closure(G, [A], G1), hornguard_call(G1).
+hornguard_call(G, A, B) :- hg_extend_closure(G, [A, B], G1), hornguard_call(G1).
+hornguard_call(G, A, B, C) :- hg_extend_closure(G, [A, B, C], G1), hornguard_call(G1).
+hornguard_call(G, A, B, C, D) :- hg_extend_closure(G, [A, B, C, D], G1), hornguard_call(G1).
+hornguard_call(G, A, B, C, D, E) :- hg_extend_closure(G, [A, B, C, D, E], G1), hornguard_call(G1).
+hornguard_call(G, A, B, C, D, E, F) :- hg_extend_closure(G, [A, B, C, D, E, F], G1), hornguard_call(G1).
+hornguard_call(G, A, B, C, D, E, F, H) :- hg_extend_closure(G, [A, B, C, D, E, F, H], G1), hornguard_call(G1).
+
+%   An unbound goal must stay unbound so the judge refuses it as such; the
+%   `M:G` pattern would otherwise unify with it and never stop stripping.
+hg_strip_module(V, hornguard, V) :- var(V), !.
+hg_strip_module(M:G0, M, G) :- !,
+    hg_strip_inner(G0, G).
+hg_strip_module(G, hornguard, G).
+
+hg_strip_inner(V, V) :- var(V), !.
+hg_strip_inner(_:G0, G) :- !, hg_strip_inner(G0, G).
+hg_strip_inner(G, G).
+
+%   An unbound closure stays unbound: the judge refuses it as such.
+hg_extend_closure(V, _, V) :- var(V), !.
+hg_extend_closure(M:C, Extra, M:G) :- !, hg_extend_closure(C, Extra, G).
+hg_extend_closure(C, Extra, G) :-
+    callable(C), !,
+    C =.. L0, append(L0, Extra, L), G =.. L.
+hg_extend_closure(C, _, C).
+
+%   A goal still unbound when its sink runs is refused here, not judged: the
+%   judged-mode rewrite would wrap it in another hornguard_call/1 and the
+%   two would hand it back and forth without end.
+hg_runtime_judge(V, refused(instantiation_error, escape_attempt, unbound_goal)) :-
+    var(V), !.
+hg_runtime_judge(G, Verdict) :-
+    (   catch(runtime_judge_hook(G, V0), _, fail)
+    ->  Verdict = V0
+    ;   hornguard_policy(policy(B, Ps, Os, Al, Tr)),
+        hg_runtime_options(Ro),
+        ( memberchk(profiles(Ps1), Ro) -> true ; Ps1 = Ps ),
+        ( memberchk(allow(Al1), Ro) -> true ; Al1 = Al ),
+        ( memberchk(trust(Tr1), Ro) -> true ; Tr1 = Tr ),
+        hornguard_admit(B, Ps1, G, [allow(Al1), trust(Tr1), dynamic_dispatch(judged)|Os], Verdict)
+    ).
+
+hg_runtime_proceed(admit, M, G) :- !,
+    call(M:G).
+hg_runtime_proceed(admit_with(Guarded), M, _) :- !,
+    call(M:Guarded).
+hg_runtime_proceed(admit_needs(Needs), _, G) :- !,
+    ( callable(G) -> functor(G, N, A), Ind = N/A ; Ind = G ),
+    throw(error(permission_error(execute, goal, Ind), hornguard(benign_miss, dynamic(needs(Needs))))).
+hg_runtime_proceed(refused(Reason, Class, Rule), _, _) :-
+    throw(error(Reason, hornguard(Class, dynamic(Rule)))).
+
+%!  hornguard_set_runtime_context(+Options) is det.
+%
+%   What hornguard_call/N judges under, beyond the loaded policy:
+%   profiles(Names), allow(Indicators), trust(Pairs). A host sets this for
+%   the namespace whose rules are about to run, from a position the author
+%   cannot reach; the setter is not in any profile.
+
+hornguard_set_runtime_context(Options) :-
+    must_be(list, Options),
+    nb_setval('$hornguard_runtime_context', Options).
+
+hg_runtime_options(Options) :-
+    (   nb_current('$hornguard_runtime_context', O), is_list(O)
+    ->  Options = O
+    ;   Options = []
+    ).
+
+%!  hornguard_catch(:Goal, ?Catcher, :Recovery) is nondet.
+%
+%   catch/3 as a stored rule gets it: a runtime refusal, a time limit, a
+%   resource error and an execute permission error pass straight through,
+%   so a catch-all recovery cannot hide that a goal was refused or keep a
+%   query running past its budget.
+
+hornguard_catch(Goal, Catcher, Recovery) :-
+    catch(Goal, Ball,
+          (   hg_uncatchable(Ball)
+          ->  throw(Ball)
+          ;   Catcher = Ball
+          ->  call(Recovery)
+          ;   throw(Ball)
+          )).
+
+hg_uncatchable(error(_, hornguard(_, _))).
+hg_uncatchable(time_limit_exceeded).
+hg_uncatchable(error(resource_error(_), _)).
+hg_uncatchable(error(permission_error(execute, _, _), _)).
 
 
 		 /*******************************

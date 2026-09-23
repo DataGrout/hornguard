@@ -1,5 +1,6 @@
 :- module(hornguard_worker,
           [ hornguard_worker_main/0,
+            apply_ops/0,               % give the reader the profiles' operators
             hornguard_read/4,          % +Backend, +Text, -Terms, -Report
             hornguard_read/5,          % +Backend, +Text, -Terms, -VarNames, -Report
             hornguard_canonical/2,     % +Term, -Text
@@ -35,7 +36,8 @@ Requests carry an `id` (echoed), an `op`, and op-specific fields:
     {"id":1,"op":"judge_goal","text":"findall(X, member(X,[a]), L)",
      "backend":"swi","profiles":["iso","prologue"],
      "options":{"strict_negation":true,"defer_unknown":false,
-                "allow":["foo/2"],"trust":[["bar/3","none"]]}}
+                "allow":["foo/2"],"trust":[["bar/3","none"]],
+                "dynamic_dispatch":"judged","defining":["my_battery"]}}
     {"id":2,"op":"judge_clause","text":"p(X) :- q(X)."}
     {"id":3,"op":"judge_program","text":"p(1).\np(X) :- q(X)."}
     {"id":4,"op":"load_policy","path":"/etc/host/policy.pl"}
@@ -47,6 +49,7 @@ Requests carry an `id` (echoed), an `op`, and op-specific fields:
 applies. Responses:
 
     {"id":1,"verdict":"admit","canonical":"findall(A,member(A,[a]),B)"}
+    {"id":1,"verdict":"admit_with","canonical":"hornguard_call(G)"}
     {"id":1,"verdict":"admit_needs","needs":[{"profile":"swi"}],"canonical":"..."}
     {"id":1,"verdict":"refused","class":"escape_attempt","rule":"pinned(process)",
      "depth":1,"reason":"permission_error(execute,goal,shell/1)"}
@@ -73,8 +76,20 @@ hornguard_worker_main :-
     set_stream(user_output, encoding(utf8)),
     set_stream(user_input, encoding(utf8)),
     seal_autoloading,
+    apply_ops,
     hello,
     loop.
+
+%!  apply_ops is det.
+%
+%   Give this module's reader the operators the loaded profiles declare, so
+%   author text that uses a host's operator (a battery's `::`) reads. The
+%   canonical form is operator-free, so the engine never needs them; op/3
+%   stays pinned for authors. Called at start and after load_profiles.
+apply_ops :-
+    catch(hornguard_ops(Ops), _, Ops = []),
+    forall(member(op(P, T, N), Ops),
+           catch(op(P, T, hornguard_worker:N), _, true)).
 
 %   On the swi backend the judge asks the engine whether a predicate is
 %   defined, and SWI answers that question by autoloading the library that
@@ -156,7 +171,7 @@ dispatch(load_policy, Req, Resp) :-
           E, ( message_to_string(E, D), Resp = _{error: policy, detail: D} )).
 dispatch(load_profiles, Req, Resp) :-
     get_dict(dirs, Req, Ds0), is_list(Ds0), maplist([S, A]>>atom_string(A, S), Ds0, Ds),
-    catch(( hornguard_load_profiles(Ds), Resp = _{ok: true} ),
+    catch(( hornguard_load_profiles(Ds), apply_ops, Resp = _{ok: true} ),
           E, ( message_to_string(E, D), Resp = _{error: profiles, detail: D} )).
 dispatch(Op, Req, Resp) :-
     memberchk(Op, [judge_goal, judge_clause, judge_program]), !,
@@ -178,7 +193,15 @@ request_options(Req, Backend, Options) :-
     (   get_dict(defer_unknown, O, DU), hg_bool(DU) -> Opts2 = [defer_unknown(DU)] ; opt_from_policy(defer_unknown, POpts, Opts2) ),
     (   get_dict(allow, O, Al0), is_list(Al0) -> maplist(indicator_from_json, Al0, Al) ; Al = PAllow ),
     (   get_dict(trust, O, Tr0), is_list(Tr0) -> maplist(trust_from_json, Tr0, Tr) ; Tr = PTrust ),
-    append([[profiles(Ps), allow(Al), trust(Tr)], Opts1, Opts2], Options).
+    (   get_dict(dynamic_dispatch, O, DD0), string(DD0), atom_string(DD, DD0), memberchk(DD, [refused, judged])
+    ->  Opts3 = [dynamic_dispatch(DD)]
+    ;   Opts3 = []
+    ),
+    (   get_dict(defining, O, Df0), is_list(Df0)
+    ->  maplist([S, A]>>atom_string(A, S), Df0, Df), Opts4 = [defining(Df)]
+    ;   Opts4 = []
+    ),
+    append([[profiles(Ps), allow(Al), trust(Tr)], Opts1, Opts2, Opts3, Opts4], Options).
 
 hg_bool(true). hg_bool(false).
 
@@ -247,6 +270,10 @@ judge(judge_program, B, Ps, T, O, V) :- hornguard_admit_program(B, Ps, T, O, V).
 
 verdict_response(admit, Term, Names, _{verdict: admit, canonical: C}) :-
     canonical_of(Term, Names, C).
+%   The guarded term shares the author's variables, so their names still
+%   apply; the canonical form is of the guarded term, which is what runs.
+verdict_response(admit_with(Guarded), _, Names, _{verdict: admit_with, canonical: C}) :-
+    canonical_of(Guarded, Names, C).
 verdict_response(admit_needs(Needs), Term, Names, _{verdict: admit_needs, needs: Ns, canonical: C}) :-
     maplist(need_json, Needs, Ns),
     canonical_of(Term, Names, C).

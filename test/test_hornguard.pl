@@ -215,6 +215,139 @@ test(goal_is_never_bound, [true(G == f(X, Y))]) :-
     G = f(X, Y),
     hornguard_admit(iso, [iso], (X = 1, Y = 2), _).
 
+:- end_tests(policy).
+
+% Dynamic dispatch, judged at the sink. Rule 1 as written refuses an unbound
+% goal in call position; under dynamic_dispatch(judged) it is rewritten to a
+% call the judge sees again when it runs, and the verdict carries the
+% rewritten term. Nothing runs unjudged in either mode.
+:- begin_tests(judged_dispatch, [cleanup(hornguard_set_runtime_context([]))]).
+
+judged(Goal, V) :- hornguard_admit(iso, [iso, prologue], Goal, [dynamic_dispatch(judged)], V).
+
+test(unbound_goal_is_rewritten, [true(V =@= admit_with(hornguard_call(_)))]) :-
+    judged(call(_G), V).
+
+test(bare_variable_body_is_rewritten, [true(V == admit_with((h(G) :- hornguard_call(G))))]) :-
+    hornguard_admit_clause(iso, [iso], (h(G) :- G), [dynamic_dispatch(judged)], V).
+
+test(unbound_closure_is_rewritten, [true(V =@= admit_with(maplist(hornguard_call(_), [a])))]) :-
+    judged(maplist(_P, [a]), V).
+
+test(call_as_closure_is_rewritten, [true(V =@= admit_with(maplist(hornguard_call, _)))]) :-
+    judged(maplist(call, _Gs), V).
+
+test(call_n_with_unbound_closure_is_rewritten, [true(V =@= admit_with(hornguard_call(_, 1, _)))]) :-
+    judged(call(_F, 1, _), V).
+
+test(catch_becomes_the_uncatchable_aware_form,
+     [true(V =@= admit_with(hornguard_catch(hornguard_call(_), _, true)))]) :-
+    judged(catch(call(_G), _E, true), V).
+
+test(rewrite_shares_the_authors_variables, [true(V == admit_with(hornguard_call(G)))]) :-
+    judged(call(G), V).
+
+test(bound_goals_are_still_judged_statically,
+     [true(V = refused(_, escape_attempt, pinned(flags_ops) + depth(1)))]) :-
+    judged(findall(H, current_prolog_flag(home, H), _), V).
+
+test(bound_goals_are_left_as_written, [true(V == admit_with(findall(X, member(X, [a]), L)))]) :-
+    judged(findall(X, member(X, [a]), L), V).
+
+test(default_mode_is_unchanged, [true(V = refused(_, escape_attempt, unbound_goal))]) :-
+    hornguard_admit(iso, [iso], call(_G), V).
+
+test(needs_are_still_needs, [true(V == admit_needs([profile(prologue)]))]) :-
+    hornguard_admit(iso, [iso], (member(X, [a]), call(_G, X)), [dynamic_dispatch(judged)], V).
+
+test(runtime_profile_joins_without_being_named, [true(V = admit_with(hornguard_call(_)))]) :-
+    hornguard_admit(iso, [], call(_G), [dynamic_dispatch(judged)], V).
+
+test(no_clause_may_define_the_runtime_calls,
+     [true(V = refused(_, escape_attempt, head(profile(hornguard_runtime))))]) :-
+    hornguard_admit_clause(iso, [iso], (hornguard_call(_) :- true), V).
+
+% The runtime half: hornguard_call/N judges under the loaded policy and the
+% runtime context, then calls, and its refusal cannot be caught.
+test(runtime_refuses_a_pinned_goal,
+     [throws(error(permission_error(execute, goal, shell/1), hornguard(capability_probe, dynamic(pinned(process)))))]) :-
+    hornguard_call(shell(x)).
+
+test(runtime_completes_and_calls_a_pure_closure, [true]) :-
+    hornguard_call(atom, a).
+
+test(runtime_refusal_passes_through_the_guarded_catch,
+     [throws(error(permission_error(execute, goal, shell/1), hornguard(_, _)))]) :-
+    hornguard_catch(hornguard_call(shell(x)), _, true).
+
+% A refusal whose reason is not an execute permission error is still a
+% refusal, and still passes through: it is the hornguard(_, _) context that
+% makes it uncatchable, not the shape of the reason.
+test(every_runtime_refusal_passes_through_the_guarded_catch,
+     [throws(error(permission_error(evaluate, evaluable, cputime/0), hornguard(_, _)))]) :-
+    hornguard_catch(hornguard_call(_ is cputime), _, true).
+
+test(an_unbound_sink_refusal_passes_through_the_guarded_catch,
+     [throws(error(instantiation_error, hornguard(_, _)))]) :-
+    hornguard_catch(hornguard_call(_G), _, true).
+
+test(runtime_refuses_a_goal_still_unbound_at_its_sink,
+     [throws(error(instantiation_error, hornguard(escape_attempt, dynamic(unbound_goal))))]) :-
+    hornguard_call(call(_H)).
+
+test(runtime_refuses_a_bare_unbound_goal,
+     [throws(error(instantiation_error, hornguard(escape_attempt, dynamic(unbound_goal))))]) :-
+    hornguard_call(_V).
+
+test(guarded_catch_still_catches_ordinary_errors, [true]) :-
+    hornguard_catch(throw(oops), oops, true).
+
+test(guarded_catch_rethrows_what_its_catcher_does_not_match, [throws(oops)]) :-
+    hornguard_catch(throw(oops), other, true).
+
+test(runtime_pins_evaluables_too,
+     [throws(error(permission_error(evaluate, evaluable, cputime/0), hornguard(_, dynamic(evaluable(cputime/0)))))]) :-
+    hornguard_call(_ is cputime).
+
+test(runtime_context_admits_the_namespaces_own_predicates, [true(Outcome == existence_not_refusal)]) :-
+    hornguard_set_runtime_context([allow([mine/1])]),
+    catch(hornguard_call(mine(1)), E, true),
+    (   E = error(existence_error(_, _), _) -> Outcome = existence_not_refusal
+    ;   Outcome = E
+    ).
+
+test(a_host_hook_decides_when_defined,
+     [cleanup(retractall(hornguard:runtime_judge_hook(_, _))),
+      throws(error(hooked, hornguard(evasion, dynamic(hook))))]) :-
+    assertz(hornguard:runtime_judge_hook(_, refused(hooked, evasion, hook))),
+    hornguard_call(atom(a)).
+
+:- end_tests(judged_dispatch).
+
+:- begin_tests(defining).
+
+% A battery's clauses define the predicates its profile promises. Judged as
+% a program with that profile named in defining/1, its heads are not shadows.
+test(profile_heads_are_shadows_by_default,
+     [true(V = refused(_, escape_attempt, head(profile(prologue))))]) :-
+    hornguard_admit_program(iso, [iso], [ (last([X], X) :- true) ], V).
+
+test(profile_heads_are_definitions_under_defining, [true(V == admit)]) :-
+    hornguard_admit_program(iso, [iso], [ (last([X], X) :- true), (last([_|T], X) :- last(T, X)) ],
+                            [defining([prologue])], V).
+
+test(defining_one_profile_does_not_unshadow_another,
+     [true(V = refused(_, escape_attempt, head(profile(iso))))]) :-
+    hornguard_admit_program(iso, [iso], [ (atom_length(_, 0) :- true) ], [defining([prologue])], V).
+
+test(defining_never_unpins,
+     [true(V = refused(_, escape_attempt, head(pinned(process))))]) :-
+    hornguard_admit_clause(iso, [iso], (shell(_) :- true), [defining([iso, prologue])], V).
+
+:- end_tests(defining).
+
+:- begin_tests(policy_tail).
+
 % The judge must not be stallable by the shape of a program. A dense
 % dependency graph — every predicate calling every other — once took the
 % stratification check exponential time: eleven predicates took seconds and
@@ -239,4 +372,4 @@ dense_program(N, [ (q(x) :- \+ p1(x)) | Clauses ]) :-
 conj([G], G) :- !.
 conj([G|Gs], (G, B)) :- conj(Gs, B).
 
-:- end_tests(policy).
+:- end_tests(policy_tail).

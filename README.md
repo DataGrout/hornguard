@@ -95,6 +95,49 @@ threat signal. `evasion` is a hostile term shape such as a cyclic goal.
 Classification never changes a verdict; it is metadata on a decision already
 made.
 
+## Dynamic dispatch, judged at the sink
+
+Rule 1 refuses every unbound goal in call position, which closes
+construct-then-call completely and also rules out every meta-interpreter, generic
+rule engine and `maplist(call, Goals)` an author might legitimately write. The
+sanctioned relaxation is `dynamic_dispatch(judged)`. Under it the judge does not
+refuse an unbound goal or closure; it rewrites it to a call the judge sees again
+at the moment it runs, and the verdict is `admit_with(Guarded)`:
+
+```prolog
+?- hornguard_admit(swi, [iso, prologue], (member(G, Gs), call(G), maplist(P, Xs)),
+                   [dynamic_dispatch(judged)], V).
+V = admit_with((member(G, Gs), hornguard_call(G), maplist(hornguard_call(P), Xs))).
+```
+
+`hornguard_call/N` judges its goal under the loaded policy, plus whatever the
+host set with `hornguard_set_runtime_context/1` for the namespace whose rules
+are running, and only then calls it. A refusal is thrown as
+`error(Reason, hornguard(Class, dynamic(Rule)))`, and `catch/3` in a guarded
+term becomes `hornguard_catch/3`, which cannot swallow it, a time limit, or a
+resource error. Bound goals are still judged statically, at their depth, with
+their classification; the runtime judge only takes what the static one could
+not see. Nothing runs unjudged in either mode, and a host that wants the runtime
+judgment made in a process the author cannot reach defines
+`hornguard:runtime_judge_hook/2`. Run `Guarded`, never the original: the
+worker's `canonical` under this mode is the guarded term.
+
+## Batteries and other installed code
+
+A host that installs a library of rules into an author's space, DataGrout's
+batteries for instance, has two questions: does the library itself pass, and
+may authors call it. Judge the library's clauses as a program with its own
+profile named in `defining/1`, so its heads are the definitions the profile
+promises rather than shadows of it, and give that profile `allow` and
+`meta_spec` entries for what the library exports. Authors then call the library
+through a profile like any other, closures included. A library that meta-calls
+its arguments or reads clauses is exactly the case judged dispatch exists for;
+judge it under `dynamic_dispatch(judged)` and install the guarded form. If the
+library defines operators, declare them with `op/3` terms in the profiles
+directory: the worker's reader honours them, and the canonical form it emits is
+operator-free, so the engine never needs to. `op/3` itself stays pinned for
+authors.
+
 ## Using it
 
 Hornguard is an SWI-Prolog pack. The repository root is the pack root.
@@ -153,8 +196,8 @@ a typed verdict.
 ```rust
 let mut hg = Hornguard::builder().profiles(["iso", "prologue"]).spawn()?;
 match hg.judge_goal("findall(X, member(X, [a, b]), L)")? {
-    Verdict::Admit { canonical } => run(&canonical),   // never the author's text
-    Verdict::AdmitNeeds { needs, .. } => ...,
+    Verdict::Admit { canonical } | Verdict::AdmitWith { canonical } => run(&canonical),
+    Verdict::AdmitNeeds { needs, .. } => ...,      // never the author's text, above
     Verdict::Refused { class, rule, .. } => ...,
 }
 ```
@@ -227,7 +270,7 @@ adversarial by construction and all of it runs under `make test`:
 | Sandbox differential | every predicate the engine defines, judged by Hornguard and by SWI's `library(sandbox)`; any admit that sandbox refuses, or any unexplained refusal, fails |
 | Mutation | one rule of the walk disabled at a time; every mutant must fail the suite |
 | Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
-| Rust client | 19 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |
+| Rust client | 20 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |
 
 The public suite is the contract, and what belongs in it is decided by the
 mutation harness rather than by taste: any case needed to kill a mutant is
