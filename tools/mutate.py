@@ -61,8 +61,8 @@ MUTATIONS = [
     ("guarded_catch_swallows_refusals", "hornguard_catch/3 catches a runtime refusal",
      "hg_uncatchable(error(_, Ctx)) :- nonvar(Ctx), Ctx = hornguard(_, _).\n", ""),
     ("defining_unpins", "defining/1 lets a clause head redefine a pinned predicate",
-     "    ;   hg_pinned(Class, Ind)\n    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))\n    ;   hg_trusted(Ind, Ctx, _)",
-     "    ;   hg_pinned(Class, Ind), \\+ hg_defining(_, Ctx)\n    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))\n    ;   hg_trusted(Ind, Ctx, _)"),
+     "    ;   hg_pinned(Class, Ind)\n    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))\n    ;   hg_author_defines(Ind, Ctx)",
+     "    ;   hg_pinned(Class, Ind), \\+ hg_defining(_, Ctx)\n    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))\n    ;   hg_author_defines(Ind, Ctx)"),
     ("head_may_shadow_profile", "a clause head may redefine a profile predicate",
      "    ;   hg_allow(Profile, Ind), \\+ hg_defining(Profile, Ctx)\n    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(profile(Profile))))",
      "    ;   fail, hg_allow(Profile, Ind), \\+ hg_defining(Profile, Ctx)\n    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(profile(Profile))))"),
@@ -90,9 +90,12 @@ MUTATIONS = [
     ("control_head_allowed", "a clause may define a control construct",
      "    (   hg_control_indicator(Ind)\n    ->  throw(",
      "    (   fail, hg_control_indicator(Ind)\n    ->  throw("),
+    ("author_defines_permits_every_head", "a declared table lets any head through",
+     "    ;   hg_author_defines(Ind, Ctx)\n    ->  true\n",
+     "    ;   true\n    ->  true\n"),
     ("defer_ignores_the_manifest", "deferral does not ask what the engine defines",
-     "hg_deferrable(Ctx, G, Ind) :-\n    Ctx = ctx(_, _, _, _, true, _),\n    \\+ hg_engine_defines(Ctx, G, Ind).",
-     "hg_deferrable(Ctx, _, _) :-\n    Ctx = ctx(_, _, _, _, true, _)."),
+     "hg_deferrable(Ctx, G, Ind) :-\n    Ctx = ctx(_, _, _, _, true, _, _),\n    \\+ hg_engine_defines(Ctx, G, Ind).",
+     "hg_deferrable(Ctx, _, _) :-\n    Ctx = ctx(_, _, _, _, true, _, _)."),
 ]
 
 

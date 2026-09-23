@@ -148,8 +148,10 @@ The same walk judges clause bodies for storage. A head may not be unbound,
 module-qualified, a control construct, an indicator a pinned class or a loaded
 profile already claims, or a predicate the host trusts: the trusted definition
 is the one whose body is never walked, and a clause in sandboxed space with
-that head would stand in for it. A clause may call its own head. Directives are
-refused. A clause set judged as a program has its own heads admitted in bodies.
+that head would stand in for it, unless the policy names that predicate in
+`author_defines`, which is how a host says a table is the authors' to fill. A
+clause may call its own head. Directives are refused. A clause set judged as a
+program has its own heads admitted in bodies.
 
 Before any walk the term is copied without attributes, refused if cyclic, and
 the walk's stack exhaustion on a pathological term becomes a refusal rather than
@@ -283,6 +285,7 @@ option(defer_unknown(true)).
 allow(customer_tier/2).                  % sandboxed space, body-judged at storage
 trust(lookup_price/3, none).             % host-defined, not walked
 trust(with_tenant/2, with_tenant(?, 0)). % host meta-predicate, spec required
+author_defines(attribute/3).             % host table authors add clauses to
 % unpin(reflection).
 ```
 
@@ -290,7 +293,13 @@ Two verbs for host predicates: `allow` for predicates whose clauses live in
 sandboxed space and were body-judged at storage, `trust` for host predicates
 admitted without walking their bodies. `trust` is the only real escape hatch,
 so it must declare a meta spec or `none`, and it is the thing a reviewer greps
-for. Load errors (an allow of a pinned indicator, a mismatched trust spec, an
+for. A third, `author_defines`, is about heads rather than calls: a host
+predicate that authors legitimately add clauses to, such as the fact tables of
+a fact store, would otherwise have every author fact refused as a shadow of
+the trusted definition. Declared, its head is permitted, the clause body is
+walked as any other, and calls to it still follow its `allow` or `trust` line.
+It may never name a pinned or control indicator. Load errors (an allow or
+author_defines of a pinned indicator, a mismatched trust spec, an
 unknown profile, option or pinned class, an unrecognised term) leave the
 previous policy and the pins exactly as they were: the whole file is validated
 before anything changes, so an `unpin` in a file that fails further down never
@@ -474,8 +483,8 @@ hornguard_ops(-Ops)                           % operators the profiles declare
 ```
 
 Options: `allow(Indicators)`, `trust(IndicatorSpecPairs)`,
-`strict_negation(Bool)`, `defer_unknown(Bool)`, `dynamic_dispatch(refused |
-judged)`, `defining(Profiles)`.
+`author_defines(Indicators)`, `strict_negation(Bool)`, `defer_unknown(Bool)`,
+`dynamic_dispatch(refused | judged)`, `defining(Profiles)`.
 
 ## Dynamic dispatch, judged at the sink
 

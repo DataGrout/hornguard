@@ -185,7 +185,14 @@ option(defer_unknown(true)).
 allow(customer_tier/2).
 trust(lookup_price/3, none).
 trust(with_tenant/2, with_tenant(?, 0)).
+author_defines(attribute/3).      % a host table authors add clauses to
 ```
+
+`author_defines` is for a host predicate that authors legitimately add
+clauses to, a fact table in a fact store, say. Its head is permitted where a
+trusted or allowed predicate's head would be refused as shadowing, and the
+clause body is walked like any other. Calls to it follow its own `allow` or
+`trust` line. It may never name a pinned or control indicator.
 
 ```prolog
 ?- hornguard_load_policy('/etc/myhost/policy.pl').
@@ -194,9 +201,9 @@ trust(with_tenant/2, with_tenant(?, 0)).
 ?- hornguard_admit_program(Clauses, Verdict).
 ```
 
-An `allow` of a pinned indicator, a trust spec whose arity does not match, an
-unknown profile or option, or an unrecognised term is a load error, and the
-previous policy stays in force.
+An `allow` or `author_defines` of a pinned indicator, a trust spec whose arity
+does not match, an unknown profile or option, or an unrecognised term is a
+load error, and the previous policy stays in force.
 
 **From Rust.** The [`hornguard` crate](crates/hornguard) is a thin client of
 the worker: it spawns the process, checks the protocol version, and gives you

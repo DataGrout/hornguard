@@ -231,7 +231,47 @@ test(unpin_is_undone_by_next_policy, [true(V = refused(_, reconnaissance, pinned
 
 :- end_tests(policy_unpin).
 
+:- begin_tests(author_defines, [setup(load(author_defines)), cleanup(load(host))]).
+
+% A fact store: the host provides attribute/3, authors add facts to it.
+test(an_author_may_add_a_fact_to_a_declared_table, [true(V == admit)]) :-
+    hornguard_admit_clause(attribute(acme, tier, gold), V).
+
+test(an_author_may_add_a_rule_to_a_declared_table, [true(V == admit)]) :-
+    hornguard_admit_clause((attribute(E, tier, gold) :- attribute(E, revenue, R), R > 1000), V).
+
+% The head is permitted; the body is walked like any other.
+test(the_body_of_such_a_rule_is_still_walked,
+     [true(V = refused(_, capability_probe, pinned(process)))]) :-
+    hornguard_admit_clause((attribute(_, cmd, out) :- shell(x)), V).
+
+% Declared without a trust or allow: the head is fine, a call is what the
+% policy otherwise says, here an unknown the host deferred.
+test(a_declared_head_needs_no_trust_to_be_defined, [true(V == admit)]) :-
+    hornguard_admit_clause(note(hello), V).
+
+test(a_declared_head_with_no_allow_is_still_unknown_to_call, [true(V == admit_needs([predicate(note/1)]))]) :-
+    hornguard_admit(note(_), V).
+
+% Everything not declared keeps the rule.
+test(a_trusted_predicate_not_declared_is_still_not_definable,
+     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+    hornguard_admit_clause(lookup_price(_, _, 0), V).
+
+test(a_program_mixing_both_is_judged_clause_by_clause,
+     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+    hornguard_admit_program([ attribute(a, b, c), (lookup_price(_, _, 0) :- true) ], V).
+
+test(the_option_reaches_the_judge_as_one_list, [true(memberchk(author_defines(L), Os)), true(msort(L, [attribute/3, note/1]))]) :-
+    hornguard_policy(policy(_, _, Os, _, _)).
+
+:- end_tests(author_defines).
+
 :- begin_tests(policy_errors, [cleanup(load(host))]).
+
+test(author_defines_of_pinned_is_a_load_error,
+     [throws(error(permission_error(author_defines, pinned(process), shell/1), _))]) :-
+    load(bad_author_defines_pinned).
 
 test(allow_of_pinned_is_a_load_error, [throws(error(permission_error(allow, pinned(process), shell/1), _))]) :-
     load(bad_allow_pinned).

@@ -201,7 +201,8 @@ request_options(Req, Backend, Options) :-
     ->  maplist([S, A]>>atom_string(A, S), Df0, Df), Opts4 = [defining(Df)]
     ;   Opts4 = []
     ),
-    append([[profiles(Ps), allow(Al), trust(Tr)], Opts1, Opts2, Opts3, Opts4], Options).
+    opt_from_policy(author_defines, POpts, Opts5),
+    append([[profiles(Ps), allow(Al), trust(Tr)], Opts1, Opts2, Opts3, Opts4, Opts5], Options).
 
 hg_bool(true). hg_bool(false).
 

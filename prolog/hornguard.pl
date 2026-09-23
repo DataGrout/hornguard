@@ -305,6 +305,12 @@ hornguard_profiles(Names) :-
 %                                     walking its body; Spec is `none` or a
 %                                     meta_predicate-style term of the same
 %                                     name and arity
+%     * author_defines(Name/Arity)    a host predicate authors may add
+%                                     clauses to, such as a fact table: a
+%                                     permitted head, with the clause body
+%                                     walked as any other. Calls to it follow
+%                                     its allow or trust declaration. Never a
+%                                     pinned or control indicator.
 %     * unpin(Class)                  reopen a pinned class. Logged as a
 %                                     warning at load, every time.
 %
@@ -339,6 +345,7 @@ hg_install_policy(Terms, File) :-
     sort(Unpins0, Unpins),
     forall(member(C, Unpins), hg_check_unpin_class(C, File)),
     hg_check_host_allows(Al, Unpins, File),
+    (   memberchk(author_defines(Aus), Os) -> hg_check_author_defines(Aus, Unpins, File) ; true ),
     hg_repin_all,
     forall(member(C, Unpins), hg_unpin(C, File)),
     retractall(hg_policy(_)),
@@ -365,6 +372,12 @@ hg_policy_term(File, allow(Ind), pol(B, Ps, Os, Al, Tr), pol(B, Ps, Os, [Ind|Al]
 hg_policy_term(File, trust(Ind, Spec), pol(B, Ps, Os, Al, Tr), pol(B, Ps, Os, Al, [Ind-Spec|Tr])) :- !,
     hg_policy_check(hg_indicator_term(Ind), File, trust(Ind, Spec)),
     hg_policy_check(hg_trust_spec_ok(Ind, Spec), File, trust_spec(Ind, Spec)).
+%   author_defines/1 terms accumulate into one author_defines(List) option,
+%   so the judge and every host that forwards policy options see one term.
+hg_policy_term(File, author_defines(Ind), pol(B, Ps, Os0, Al, Tr), pol(B, Ps, Os, Al, Tr)) :- !,
+    hg_policy_check(hg_indicator_term(Ind), File, author_defines(Ind)),
+    (   selectchk(author_defines(L0), Os0, Os1) -> true ; L0 = [], Os1 = Os0 ),
+    Os = [author_defines([Ind|L0])|Os1].
 hg_policy_term(File, Term, _, _) :-
     throw(error(domain_error(hornguard_policy_term, Term), context(File, _))).
 
@@ -374,6 +387,7 @@ hg_policy_check(_, File, What) :-
 
 hg_policy_option(strict_negation(B)) :- hg_bool(B).
 hg_policy_option(defer_unknown(B)) :- hg_bool(B).
+hg_policy_option(author_defines(L)) :- is_list(L), maplist(hg_indicator_term, L).
 
 hg_bool(true).
 hg_bool(false).
@@ -382,6 +396,17 @@ hg_indicator_term(N/A) :- atom(N), integer(A), A >= 0.
 
 hg_trust_spec_ok(_, none) :- !.
 hg_trust_spec_ok(N/A, Spec) :- callable(Spec), functor(Spec, N, A).
+
+hg_check_author_defines(Inds, Unpins, File) :-
+    forall(member(Ind, Inds),
+           (   ( hg_pinned(C, Ind) ; hg_unpinned(C, Ind) ),
+               \+ memberchk(C, Unpins)
+           ->  throw(error(permission_error(author_defines, pinned(C), Ind),
+                           context(File, 'an author may not define a pinned predicate')))
+           ;   hg_control_indicator(Ind)
+           ->  throw(error(permission_error(author_defines, control, Ind), context(File, _)))
+           ;   true
+           )).
 
 hg_check_host_allows(Allows, Unpins, File) :-
     forall(member(Ind, Allows),
@@ -586,7 +611,7 @@ hg_needs_verdict([], admit) :- !.
 hg_needs_verdict(Needs0, admit_needs(Needs)) :-
     sort(Needs0, Needs).
 
-hg_context(Backend, Profiles, Options, ctx(Backend, Profiles, Allow, Trust, Defer, Defining)) :-
+hg_context(Backend, Profiles, Options, ctx(Backend, Profiles, Allow, Trust, Defer, Defining, Authors)) :-
     must_be(atom, Backend),
     must_be(list(atom), Profiles),
     must_be(list, Options),
@@ -601,6 +626,9 @@ hg_context(Backend, Profiles, Options, ctx(Backend, Profiles, Allow, Trust, Defe
     ),
     (   memberchk(defining(Df), Options) -> must_be(list(atom), Df), Defining = Df
     ;   Defining = []
+    ),
+    (   memberchk(author_defines(Au), Options) -> must_be(list, Au), Authors = Au
+    ;   Authors = []
     ).
 
 %   dynamic_dispatch(refused), the default, is rule 1 as written. Under
@@ -735,7 +763,7 @@ hg_indicator(G, Ind, D, Ctx, N0, N) :-
 %   swi alone once lived here, and every manifest backend deferred what it
 %   should have refused.
 hg_deferrable(Ctx, G, Ind) :-
-    Ctx = ctx(_, _, _, _, true, _),
+    Ctx = ctx(_, _, _, _, true, _, _),
     \+ hg_engine_defines(Ctx, G, Ind).
 
 %   Reflection is reconnaissance wherever it appears. Any other pinned
@@ -749,16 +777,16 @@ hg_pinned_report_class(_, _, escape_attempt).
 hg_depth_rule(Rule, 0, Rule) :- !.
 hg_depth_rule(Rule, D, Rule + depth(D)).
 
-hg_trusted(Ind, ctx(_, _, _, Trust, _, _), Spec) :-
+hg_trusted(Ind, ctx(_, _, _, Trust, _, _, _), Spec) :-
     memberchk(Ind-Spec, Trust).
 
-hg_in_force(Ind, ctx(_, Profiles, Allow, _, _, _)) :-
+hg_in_force(Ind, ctx(_, Profiles, Allow, _, _, _, _)) :-
     (   member(P, Profiles), hg_allow(P, Ind)
     ->  true
     ;   memberchk(Ind, Allow)
     ).
 
-hg_spec_in_force(Name/Arity, ctx(_, Profiles, _, _, _, _), Spec) :-
+hg_spec_in_force(Name/Arity, ctx(_, Profiles, _, _, _, _, _), Spec) :-
     functor(Spec, Name, Arity),
     member(P, Profiles),
     hg_meta(P, Spec), !.
@@ -836,7 +864,7 @@ hg_clause(Head, Ctx, []) :-
 %   A clause may call its own head: recursion is the normal shape of a rule.
 %   Any other sandboxed predicate has to arrive through the allow/1 option,
 %   because only the host knows what else is stored.
-hg_allow_head_in_body(Head, ctx(B, P, Allow, Trust, D, Df), ctx(B, P, [Ind|Allow], Trust, D, Df)) :-
+hg_allow_head_in_body(Head, ctx(B, P, Allow, Trust, D, Df, Au), ctx(B, P, [Ind|Allow], Trust, D, Df, Au)) :-
     functor(Head, Name, Arity),
     Ind = Name/Arity.
 
@@ -858,6 +886,8 @@ hg_head(Head, Ctx) :-
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(control)))
     ;   hg_pinned(Class, Ind)
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))
+    ;   hg_author_defines(Ind, Ctx)
+    ->  true
     ;   hg_trusted(Ind, Ctx, _)
     ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(trusted)))
     ;   hg_allow(Profile, Ind), \+ hg_defining(Profile, Ctx)
@@ -870,8 +900,17 @@ hg_head(Head, _) :-
 %   A host judging the program that *is* a profile (a battery's clauses,
 %   installed once as platform code) names that profile in defining/1; its
 %   heads are then the definitions the profile promises, not shadows of them.
-hg_defining(Profile, ctx(_, _, _, _, _, Defining)) :-
+hg_defining(Profile, ctx(_, _, _, _, _, Defining, _)) :-
     memberchk(Profile, Defining).
+
+%   A predicate the host provides as a table authors populate: entity and
+%   attribute facts in a fact store, say. The host declares it in
+%   author_defines/1; an author's clause may then carry that head, and its
+%   body is walked like any other. Calls to it are governed by the
+%   predicate's own allow or trust declaration, as before. Pinned and
+%   control indicators are refused at policy load, never here.
+hg_author_defines(Ind, ctx(_, _, _, _, _, _, Authors)) :-
+    memberchk(Ind, Authors).
 
 hg_control_indicator((',')/2).
 hg_control_indicator((;)/2).
@@ -940,7 +979,7 @@ hg_clause_head_indicator(H, Name/Arity) :-
     callable(H),
     functor(H, Name, Arity).
 
-hg_allow_all(Inds, ctx(B, P, Allow0, Trust, D, Df), ctx(B, P, Allow, Trust, D, Df)) :-
+hg_allow_all(Inds, ctx(B, P, Allow0, Trust, D, Df, Au), ctx(B, P, Allow, Trust, D, Df, Au)) :-
     append(Inds, Allow0, Allow).
 
 hg_check_stratified(Clauses) :-
@@ -1193,7 +1232,7 @@ hg_strata_edge(edge(H, C, Sign), S0-Ch0, S-Ch) :-
 %   unjudged. Only a backend that can be asked supports this; a manifest
 %   records what exists, not what is meta, so on a manifest-driven backend
 %   the profiles' specs are the whole story and must be complete.
-hg_engine_meta_gap(ctx(swi, _, _, _, _, _), G) :-
+hg_engine_meta_gap(ctx(swi, _, _, _, _, _, _), G) :-
     catch(predicate_property(G, meta_predicate(Spec)), _, fail),
     Spec =.. [_|Modes],
     member(Mode, Modes),
@@ -1213,9 +1252,9 @@ hg_unknown_reason(_, _, Ind, existence_error(procedure, Ind)).
 %   the backend's manifest otherwise. A backend with no manifest knows
 %   nothing, so everything unrecognised is an existence error and
 %   defer_unknown defers it.
-hg_engine_defines(ctx(swi, _, _, _, _, _), G, _) :- !,
+hg_engine_defines(ctx(swi, _, _, _, _, _, _), G, _) :- !,
     catch(predicate_property(G, defined), _, fail).
-hg_engine_defines(ctx(Backend, _, _, _, _, _), _, Ind) :-
+hg_engine_defines(ctx(Backend, _, _, _, _, _, _), _, Ind) :-
     hg_engine(Backend, Ind).
 
 
@@ -1272,7 +1311,7 @@ hg_guard_goal(G, Ctx, Guarded) :-
 hg_guard_goal(G, _, G).
 
 %   A trust spec from the policy, else any loaded profile's spec.
-hg_guard_spec(Ind, ctx(_, _, _, Trust, _, _), Spec) :-
+hg_guard_spec(Ind, ctx(_, _, _, Trust, _, _, _), Spec) :-
     (   memberchk(Ind-Spec0, Trust), Spec0 \== none
     ->  Spec = Spec0
     ;   hg_any_meta_spec(Ind, Spec)
