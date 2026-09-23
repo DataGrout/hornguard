@@ -277,6 +277,7 @@ adversarial by construction and all of it runs under `make test`:
 | Policy tests | policy files load, apply, and refuse what they must |
 | Generated terms | hundreds of seeded goals against invariants: pinned in call position is always refused, clean terms never are, refusal is monotonic under profile subsets, the input is never bound |
 | Sandbox differential | every predicate the engine defines, judged by Hornguard and by SWI's `library(sandbox)`; any admit that sandbox refuses, or any unexplained refusal, fails |
+| Attestation by experiment | every allowed predicate the engine defines is called under several argument shapes with tripwires around output, messages, globals, flags, operators, streams, modules, threads, records, dynamic clauses, the random state and the scratch directory; an undeclared change fails. The claim in an `allow` line, checked against the engine rather than against another list |
 | Mutation | one rule of the walk disabled at a time; every mutant must fail the suite |
 | Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
 | Rust client | 20 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |

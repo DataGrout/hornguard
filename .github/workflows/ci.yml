@@ -58,6 +58,12 @@ jobs:
       - name: Sandbox differential
         run: make test-differential
 
+      # Attestation by experiment: every allowed predicate is called with
+      # tripwires around it. On the development branch a new impurity is a
+      # builtin that changed behaviour, caught before the release a host runs.
+      - name: Attestation
+        run: make test-attest
+
       # The committed profile records the engine version it was generated
       # against. On that version, regenerating must reproduce it. On any
       # other, a difference is the engine having changed, which the

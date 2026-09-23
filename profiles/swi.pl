@@ -7,6 +7,10 @@
 %% attestation. The review record is profiles/REVIEWS.md.
 %%
 %% Dropped (sandbox-safe, kept out, with reason):
+%%   eval_license/0                     output
+%%   hash/1                             deprecated_message
+%%   index/1                            deprecated_message
+%%   write_ln/1                         pinned(streams)
 %%   current_type/3                     reflection
 %%   (:<)/2                             dicts_deferred
 %%   '<meta-call>'/1                    internal
@@ -331,12 +335,9 @@ allow(swi_backcomp, concat_atom/2).
 allow(swi_backcomp, concat_atom/3).
 allow(swi_backcomp, convert_time/2).
 allow(swi_backcomp, convert_time/8).
-allow(swi_backcomp, eval_license/0).
 allow(swi_backcomp, feature/2).
 allow(swi_backcomp, free_variables/2).
-allow(swi_backcomp, hash/1).
 allow(swi_backcomp, hash_term/2).
-allow(swi_backcomp, index/1).
 allow(swi_backcomp, merge/3).
 allow(swi_backcomp, merge_set/3).
 allow(swi_backcomp, proper_list/1).
@@ -347,7 +348,6 @@ allow(swi_backcomp, string_to_list/2).
 allow(swi_backcomp, sublist/3).
 allow(swi_backcomp, substring/4).
 allow(swi_backcomp, sumlist/2).
-allow(swi_backcomp, write_ln/1).
 meta_spec(swi_backcomp, call_cleanup(0,?,0)).
 meta_spec(swi_backcomp, checklist(1,?)).
 meta_spec(swi_backcomp, setup_and_call_cleanup(0,0,0)).

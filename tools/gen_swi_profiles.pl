@@ -54,6 +54,12 @@ source_profile(backward_compatibility, swi_backcomp).
 %   exclude(Indicator, Reason). Sandbox-safe predicates that stay out.
 exclude('<meta-call>'/1,           internal).
 exclude(abort/0,                   process).
+%   Found by tools/attest.pl: backcomp predicates that print. eval_license/0
+%   writes the licence evaluation; hash/1 and index/1 are deprecated no-ops
+%   that print a warning. None is anything an author needs.
+exclude(eval_license/0,            output).
+exclude(hash/1,                    deprecated_message).
+exclude(index/1,                   deprecated_message).
 exclude(at_halt/1,                 process).
 exclude(cancel_halt/1,             process).
 exclude(sleep/1,                   timing).

@@ -56,6 +56,12 @@ pinned(filesystem, tmp_file/_).
 pinned(filesystem, tmp_file_stream/_).
 pinned(filesystem, working_directory/_).
 
+%% A list in goal position is consult/1 on SWI ([file] loads file), and '.'/2
+%% in goal position is dict access. Both are loading or evaluation, never a
+%% goal an author needs. Found by the attestation harness feeding lists into
+%% the control constructs.
+pinned(loading, '[|]'/2).
+pinned(loading, '.'/2).
 pinned(loading, consult/_).
 pinned(loading, use_module/_).
 pinned(loading, ensure_loaded/_).
@@ -146,6 +152,10 @@ pinned(reflection, current_arithmetic_function/_).
 pinned(destructive_state, del_attr/_).
 pinned(destructive_state, del_attrs/_).
 pinned(streams, writeln/_).
+%% write_ln/1 (library(backcomp)) writes to current output. SWI's sandbox
+%% tolerates it because its hosts capture output; here it is the one output
+%% predicate the generator let through, found by the attestation harness.
+pinned(streams, write_ln/_).
 pinned(streams, writef/_).
 pinned(streams, portray_clause/_).
 pinned(streams, print_message/_).

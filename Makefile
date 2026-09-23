@@ -1,9 +1,20 @@
 SWIPL ?= swipl
 CARGO ?= cargo
 
-.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-crate check differential gen-profiles manifests mutation worker
+.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-attest test-crate check differential attest gen-profiles manifests mutation worker
 
-test: test-fixtures test-policy test-generated test-worker test-differential test-crate
+test: test-fixtures test-policy test-generated test-worker test-differential test-attest test-crate
+
+## Attestation by experiment: every allowed predicate the engine defines is
+## called under several argument shapes with tripwires around output, globals,
+## flags, operators, streams, modules, threads, records, dynamic clauses, the
+## random state, the working directory and the scratch directory's files. An
+## undeclared change fails. See tools/attest.pl.
+attest:
+	$(SWIPL) -q -g attest -t halt tools/attest.pl
+
+test-attest:
+	$(SWIPL) -q -g run_tests -t halt test/test_attest.pl
 
 ## The judge worker: reader fixtures in-process, protocol tests against a spawned worker.
 test-worker:

@@ -108,6 +108,16 @@ verdict(core_evaluable_in_meta,    iso, [iso], findall(T, T is realtime, _),
 verdict(core_evaluable_pure,       iso, [iso], (_ is 2 ** 10 + max(1, 2), 3 =:= 1 + 2), admit).
 verdict(core_evaluable_as_data,    iso, [iso], _ = cputime, admit).
 
+%% A list in goal position is consult/1 on SWI. It was refused as an unknown
+%% functor before; it is a loading probe, and classified as one.
+verdict(core_list_goal_is_loading,  iso, [iso], [some_file],
+        refused(capability_probe, pinned(loading))).
+verdict(core_list_goal_nested,      iso, [iso], (true, [some_file]),
+        refused(capability_probe, pinned(loading))).
+verdict(core_list_goal_in_meta,     iso, [iso], findall(_, [some_file], _),
+        refused(escape_attempt, pinned(loading) + depth(1))).
+verdict(core_list_as_data_is_fine,  iso, [iso, prologue], member(_, [a, b]), admit).
+
 %% A coroutine runs its goal at a later unification, in whoever's code path
 %% performs it. The goal would be judged; the moment would not. Pinned.
 verdict(core_pinned_freeze,        iso, [iso], freeze(X, atom(X)),

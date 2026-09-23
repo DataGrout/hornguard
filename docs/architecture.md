@@ -383,6 +383,20 @@ Fixtures are the contract every implementation of the judge must satisfy.
   Hornguard refuses without a pin or exclusion to explain it, and on a
   generated profile that regeneration would change. Running it against the SWI
   development branch is how a changed builtin gets months of notice.
+- **Attestation by experiment** (`tools/attest.pl`): every allowed predicate
+  the engine defines is called, one solution under a time limit, under six
+  argument shapes and a mixed one, in a scratch directory, with tripwires
+  around output, printed messages, global variables, flags, the operator
+  table, open streams, the module list, threads, the recorded database,
+  every dynamic predicate's clause count, the random generator's state, the
+  working directory and the scratch directory's files. What trips during a
+  call to `true` is calibrated out as the harness's own noise. A change the
+  predicate made is `impure` unless the profile declares it (`swi_random`
+  moves the generator's state, on purpose), and an undeclared impurity fails
+  the suite. It cannot see effects outside the process or on time; those
+  stay with the pins and the review. Its first run found `write_ln/1`, a
+  backcomp predicate SWI's sandbox tolerates because its hosts capture
+  output, and that a list in goal position is `consult/1`.
 - **Mutation** (`tools/mutate.py`): one rule of the walk disabled at a time in a
   copy of the judge; every mutant must fail the suite.
 - **Worker** (`test/test_worker.pl`): reader fixtures in-process, and protocol

@@ -14,3 +14,12 @@ generated from. This file is the record. It is not generated.
 A regeneration that changes an entry needs a new row, and the differential
 (`make test-differential`) is the check that says whether the engine or the
 file moved.
+
+## Attested by experiment
+
+`make attest` calls every allowed predicate with tripwires around it
+(`tools/attest.pl`). A review reads the list; this runs it.
+
+| Engine | Date | Result | Findings |
+|---|---|---|---|
+| SWI-Prolog 9.2.9 | 2026-09-22 | 313 pure, 10 declared (`swi_random`), 0 undeclared, 2 skipped (`maplist/6`, `maplist/7` not defined on this engine) | `write_ln/1` writes: pinned. `eval_license/0`, `hash/1`, `index/1` print: excluded from the generated profile. A list in goal position is `consult/1`: pinned under `loading`. |
