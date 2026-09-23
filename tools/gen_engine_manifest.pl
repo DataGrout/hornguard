@@ -51,7 +51,10 @@ emit_probe(S, Backend, OutFile, Cs) :-
     format(S, "%% GENERATED probe: runs inside ~w and writes its manifest.~n", [Backend]),
     format(S, "%% Strict ISO plus predicate_property/2; nothing is passed in.~n~n", []),
     forall(member(N-A, Cs), format(S, "cand(~q, ~w).~n", [N, A])),
-    format(S, "~ndefined(N, A) :- functor(G, N, A), catch(predicate_property(G, built_in), _, fail).~n~n", []),
+    % A sentinel keeps phantom/2 defined on an engine with no phantoms.
+    format(S, "phantom(hg_no_phantom, -1).~n", []),
+    forall(reports_but_does_not_define(Backend, N/A), format(S, "phantom(~q, ~w).~n", [N, A])),
+    format(S, "~ndefined(N, A) :- \\+ phantom(N, A), functor(G, N, A), catch(predicate_property(G, built_in), _, fail).~n~n", []),
     % A failure-driven loop, not forall/2: Scryer has no forall/2 without a
     % library, and a probe that needs libraries is a probe of the libraries.
     format(S, "emit(S) :- cand(N, A), defined(N, A),~n", []),
@@ -59,6 +62,13 @@ emit_probe(S, Backend, OutFile, Cs) :-
     format(S, "emit(_).~n~n", []),
     format(S, "probe :- open(~q, write, S), emit(S), close(S), halt.~n~n", [OutFile]),
     format(S, ":- initialization(probe).~n", []).
+
+%   What an engine's predicate_property/2 calls built_in but raises an
+%   existence error for when called, as started. Found by the engine
+%   attestation (`make attest-engines`), which reports such an entry as
+%   `not_defined`; it is listed here so regeneration does not put it back.
+%   Scryer 0.10.0: variant/2 belongs to library(terms) and is not loaded.
+reports_but_does_not_define(scryer, variant/2).
 
 candidate(N, A) :- hornguard:hg_allow(_, N/A).
 candidate(N, A) :-
@@ -111,7 +121,27 @@ emit(S, Backend, Engine, Pinned) :-
     forall(member(Class-Ind, Pinned), format(S, "%%   ~q~t~34|~w~n", [Ind, Class])),
     nl(S),
     format(S, ":- multifile engine/2.~n~n", []),
-    forall(member(E, Engine), format(S, "~q.~n", [E])).
+    forall(member(E, Engine), format(S, "~q.~n", [E])),
+    enforcement_note(Backend, Kind, Lines),
+    nl(S),
+    forall(member(L, Lines), format(S, "%% ~w~n", [L])),
+    format(S, "enforcement(~q, ~q).~n", [Backend, Kind]).
+
+%   The declared enforcement travels with the manifest. It is knowledge
+%   about the engine, not a probe result, so it lives here and is written
+%   on every regeneration rather than hand-added to a generated file.
+enforcement_note(scryer, external,
+    [ "Enforcement: Scryer has no in-engine time, inference or stack caps, no",
+      "protected static code, and no module isolation an author cannot see",
+      "through. A host runs it under an external bound — a process wrapper that",
+      "caps address space and kills on RSS or on the parent's exit — and attests",
+      "that before running anything." ]).
+enforcement_note(trealla, external,
+    [ "Enforcement: like Scryer, Trealla has no in-engine caps the judge's host",
+      "can rely on. Compiled to WebAssembly it inherits the runtime's fuel and",
+      "memory limits, which is the strongest hermetic option here, but that is a",
+      "property of the deployment rather than of the engine, so the host attests",
+      "it." ]).
 
 read_terms(File, Terms) :-
     setup_call_cleanup(open(File, read, S), read_all(S, Terms), close(S)).

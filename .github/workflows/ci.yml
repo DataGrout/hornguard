@@ -64,6 +64,19 @@ jobs:
       - name: Attestation
         run: make test-attest
 
+      # The same experiment inside Scryer and Trealla, when their installs
+      # above succeeded; an engine that is not on PATH is skipped, not failed.
+      - name: Engine attestation
+        run: make test-attest-engines
+
+      # Terms the judge admits, run with the attestation's tripwires: a wire
+      # on an admitted term is a composition the judge got wrong.
+      - name: Admit-then-run fuzzing
+        run: make test-fuzz
+
+      - name: Composition
+        run: make test-compose
+
       # The committed profile records the engine version it was generated
       # against. On that version, regenerating must reproduce it. On any
       # other, a difference is the engine having changed, which the

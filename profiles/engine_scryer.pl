@@ -1,6 +1,6 @@
 %% Engine manifest: what scryer defines.
 %%
-%% GENERATED on 2026-09-19 by running tools/engine_probe.pl inside scryer over the
+%% GENERATED on 2026-09-22 by running tools/engine_probe.pl inside scryer over the
 %% candidate list from tools/gen_engine_manifest.pl. Regenerate with
 %% `make manifests`.
 %%
@@ -185,7 +185,6 @@ engine(scryer,unify_with_occurs_check/2).
 engine(scryer,use_module/1).
 engine(scryer,use_module/2).
 engine(scryer,var/1).
-engine(scryer,variant/2).
 engine(scryer,write/1).
 engine(scryer,write/2).
 engine(scryer,write_canonical/1).

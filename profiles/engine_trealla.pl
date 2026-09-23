@@ -1,6 +1,6 @@
 %% Engine manifest: what trealla defines.
 %%
-%% GENERATED on 2026-09-19 by running tools/engine_probe.pl inside trealla over the
+%% GENERATED on 2026-09-22 by running tools/engine_probe.pl inside trealla over the
 %% candidate list from tools/gen_engine_manifest.pl. Regenerate with
 %% `make manifests`.
 %%
@@ -23,6 +23,7 @@
 %%   assertz/2                    database
 %%   retract/1                    database
 %%   retractall/1                 database
+%%   call_residue_vars/2          deferred_execution
 %%   erase/1                      destructive_state
 %%   nb_setarg/3                  destructive_state
 %%   absolute_file_name/2         filesystem
@@ -191,6 +192,7 @@ engine(trealla,call/7).
 engine(trealla,call/8).
 engine(trealla,call_cleanup/2).
 engine(trealla,call_nth/2).
+engine(trealla,call_residue_vars/2).
 engine(trealla,callable/1).
 engine(trealla,catch/3).
 engine(trealla,char_code/2).

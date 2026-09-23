@@ -2,7 +2,13 @@
           [ attest/0,                 % every profile on this engine; fails on an unexpected impurity
             attest/1,                 % +Profiles | all
             attest_report/2,          % +Profiles | all, -Report
-            attest_predicate/2        % +Indicator (Name/Arity or Module:Name/Arity), -Verdict
+            attest_predicate/2,       % +Indicator (Name/Arity or Module:Name/Arity), -Verdict
+            % The tripwired sandbox on its own, for the fuzzer and the
+            % composition tests: run any goal and learn what it changed.
+            in_scratch/1,             % :Goal, in a fresh directory that is removed after
+            calibrate/1,              % -Noise
+            run_goal/3,               % +Goal, +Noise, -Wires
+            expected/3                % ?Profile, ?Indicator, ?Why
           ]).
 
 %% Attestation by experiment.
@@ -64,6 +70,8 @@
 :- catch(use_module(library(backcomp)), _, true).
 
 time_limit(0.5).
+
+:- meta_predicate in_scratch(0).
 
 %   expected(Profile, Indicator, Why): an impurity the profile means.
 expected(swi_random, _, random_state).
@@ -230,6 +238,16 @@ build_goal(N/_, Args, G) :- G =.. [N|Args].
 
 run_shape(Spec, Args, Noise, Wires) :-
     build_goal(Spec, Args, Goal),
+    run_goal(Goal, Noise, Wires).
+
+%!  run_goal(+Goal, +Noise, -Wires) is det.
+%
+%   Run Goal once under the time limit with every tripwire armed. Wires is
+%   the list of wire(Name, Detail) that tripped, [] for an inert call.
+%   Errors and failure are not wires. Call inside in_scratch/1 with the
+%   Noise calibrate/1 returned there.
+
+run_goal(Goal, Noise, Wires) :-
     time_limit(T),
     nb_setval(hg_attest_msgs, msgs([])),
     snapshot(Before),

@@ -1,9 +1,9 @@
 SWIPL ?= swipl
 CARGO ?= cargo
 
-.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-attest test-crate check differential attest gen-profiles manifests mutation worker
+.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-crate check differential attest attest-engines fuzz gen-profiles manifests mutation worker
 
-test: test-fixtures test-policy test-generated test-worker test-differential test-attest test-crate
+test: test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-crate
 
 ## Attestation by experiment: every allowed predicate the engine defines is
 ## called under several argument shapes with tripwires around output, globals,
@@ -15,6 +15,31 @@ attest:
 
 test-attest:
 	$(SWIPL) -q -g run_tests -t halt test/test_attest.pl
+
+## The same experiment inside Scryer and Trealla: a probe generated per
+## allowed predicate the engine's manifest names, run in that engine with the
+## tripwires it can express. Skips an engine that is not on PATH.
+attest-engines:
+	$(SWIPL) -q -g attest_engines -t halt tools/attest_engine.pl
+
+test-attest-engines:
+	$(SWIPL) -q -g run_tests -t halt test/test_attest_engine.pl
+
+## Admit-then-run: seeded terms from allowed, meta, control and pinned
+## vocabulary; every one the judge admits is run in the attestation sandbox,
+## and a tripwire on an admitted term fails. N and SEED override the defaults.
+FUZZ_N ?= 400
+FUZZ_SEED ?= 20260922
+fuzz:
+	$(SWIPL) -q -g "fuzz($(FUZZ_N), $(FUZZ_SEED))" -t halt tools/fuzz.pl
+
+test-fuzz:
+	$(SWIPL) -q -g run_tests -t halt test/test_fuzz.pl
+
+## Composition: fixtures the judge admits run inert; judged dispatch through
+## the worker, the canonical form and the runtime half; operators end to end.
+test-compose:
+	$(SWIPL) -q -g run_tests -t halt test/test_compose.pl
 
 ## The judge worker: reader fixtures in-process, protocol tests against a spawned worker.
 test-worker:

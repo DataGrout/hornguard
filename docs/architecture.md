@@ -397,6 +397,36 @@ Fixtures are the contract every implementation of the judge must satisfy.
   stay with the pins and the review. Its first run found `write_ln/1`, a
   backcomp predicate SWI's sandbox tolerates because its hosts capture
   output, and that a list in goal position is `consult/1`.
+- **Engine attestation** (`tools/attest_engine.pl`): the same experiment
+  inside Scryer and Trealla, whose predicates are different implementations
+  from SWI's and whose backends carry manifests rather than being asked. For
+  every allowed predicate the engine's manifest names, a self-contained
+  strict-ISO probe is generated and run in that engine, one process per
+  predicate under a wall-clock bound, with the tripwires the engine can
+  express: output, flags, operators, streams, the predicate table, dynamic
+  clause counts and the scratch directory's files. Its noise is calibrated
+  against `true` as in SWI. A manifest entry the engine, as started, raises
+  an existence error for is `not_defined` rather than silently pure; the
+  first run found one (`variant/2` on Scryer 0.10.0, which
+  `predicate_property/2` calls built-in and a call does not find), and the
+  manifest generator now excludes it. Global variables, threads and the
+  random state are not observable from inside these engines and stay with
+  the review.
+- **Admit-then-run fuzzing** (`tools/fuzz.pl`): seeded terms built from the
+  allowed, meta, control and pinned vocabulary of the profiles, judged, and
+  every admitted one run in the attestation sandbox with the same tripwires.
+  The attestation asks whether each predicate is inert alone; this asks
+  whether the judge's compositions of them are, and whether a term it admits
+  can do anything a term it refuses could. A wire on an admitted term is a
+  composition failure and fails the suite. The seed is fixed in the test so a
+  failure reproduces; `make fuzz` takes another count and seed.
+- **Composition** (`test/test_compose.pl`): the pieces end to end. Every
+  fixture the judge admits on an engine we have runs inert. Judged dispatch
+  goes through the worker to a guarded canonical form, is read back and run
+  in the sandbox: the pure sink runs, the pinned sink refuses with the
+  runtime wrapper and trips nothing on the way. A stored program is rewritten,
+  loaded and called with goals built from data. A host operator is read,
+  judged, emitted operator-free and read back into the same term.
 - **Mutation** (`tools/mutate.py`): one rule of the walk disabled at a time in a
   copy of the judge; every mutant must fail the suite.
 - **Worker** (`test/test_worker.pl`): reader fixtures in-process, and protocol

@@ -278,6 +278,9 @@ adversarial by construction and all of it runs under `make test`:
 | Generated terms | hundreds of seeded goals against invariants: pinned in call position is always refused, clean terms never are, refusal is monotonic under profile subsets, the input is never bound |
 | Sandbox differential | every predicate the engine defines, judged by Hornguard and by SWI's `library(sandbox)`; any admit that sandbox refuses, or any unexplained refusal, fails |
 | Attestation by experiment | every allowed predicate the engine defines is called under several argument shapes with tripwires around output, messages, globals, flags, operators, streams, modules, threads, records, dynamic clauses, the random state and the scratch directory; an undeclared change fails. The claim in an `allow` line, checked against the engine rather than against another list |
+| Engine attestation | the same experiment inside Scryer and Trealla: a strict-ISO probe generated per allowed predicate the engine's manifest names, run in that engine, one process each, with the tripwires it can express; a manifest entry the engine does not define is reported, not passed |
+| Admit-then-run fuzzing | seeded terms built from the allowed, meta, control and pinned vocabulary; every term the judge admits is run in the attestation sandbox, and a tripwire on an admitted term is a composition failure. The attestation asks whether each predicate is inert alone; this asks whether the judge's compositions of them stay inert |
+| Composition | fixtures the judge admits run inert; judged dispatch through the worker, the canonical form and the runtime half, refusing at the sink inside the sandbox; a host operator read, judged, emitted operator-free and read back |
 | Mutation | one rule of the walk disabled at a time; every mutant must fail the suite |
 | Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
 | Rust client | 20 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |
@@ -299,7 +302,7 @@ everything above. Security reports: [SECURITY.md](SECURITY.md).
 | `profiles/` | `iso`, `prologue`, generated `swi*`, the pinned class table, and `REVIEWS.md`, the record of who attested which generation |
 | `fixtures/verdicts/` | Conformance fixtures |
 | `test/` | plunit suites |
-| `tools/` | Profile generator, sandbox differential, mutation harness (`make gen-profiles`, `make differential`, `make mutation`) |
+| `tools/` | Profile generator, sandbox differential, attestation harnesses, fuzzer, mutation harness (`make gen-profiles`, `make differential`, `make attest`, `make attest-engines`, `make fuzz`, `make mutation`) |
 | `crates/hornguard` | The Rust client: spawns a judge worker and returns typed verdicts |
 
 ## License
