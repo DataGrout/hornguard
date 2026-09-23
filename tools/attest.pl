@@ -40,15 +40,20 @@
 %% attest/0, so it can gate CI on the engine it runs on.
 %%
 %% What this cannot see: effects outside the process (network, a file
-%% written elsewhere than the scratch directory), effects on user_error, and
-%% time. Those stay with the pins and the review. Errors and failures are
-%% fine: purity is about what a call changes, not whether it succeeds.
+%% written elsewhere than the scratch directory) and time. Those stay with
+%% the pins and the review. Nor can it cover the argument space: the shapes
+%% sweep every kind of value known to make a quiet predicate act, one
+%% position at a time, and a predicate impure only under a value not in
+%% that list passes here and is the differential's and the review's to
+%% catch. Errors and failures are fine: purity is about what a call
+%% changes, not whether it succeeds.
 %%
 %%   swipl -q -g attest -t halt tools/attest.pl          (or: make attest)
 
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 :- use_module(library(time)).
+:- use_module(library(memfile)).
 :- use_module(library(yall)).
 :- use_module('../prolog/hornguard').
 
@@ -177,9 +182,18 @@ in_scratch(Goal) :-
 		 *            SHAPES            *
 		 *******************************/
 
-%   One shape per data value, each data argument taking that value, and
-%   one mixed shape; goal arguments are `true`, closures a lambda that takes
-%   the right number of arguments and does nothing. Errors are fine.
+%   Three kinds of shape. One per data value, every data argument taking
+%   that value; one mixed; and a positional sweep: each data position in
+%   turn takes each value of the kinds known to make an otherwise quiet
+%   predicate act (stream aliases, file names, flag names, operator specs,
+%   module-qualified goals, text in its three forms, extreme numbers, odd
+%   atoms) while the other arguments stay neutral. Goal arguments are
+%   `true`, closures a lambda that takes the right number of arguments and
+%   does nothing. Errors are fine: a type error is a predicate declining.
+%
+%   What this cannot do is cover the argument space. A predicate impure
+%   only under a value not listed here passes, which is why the differential
+%   and the review remain.
 data_value(a).
 data_value(1).
 data_value("s").
@@ -187,12 +201,54 @@ data_value([a, b]).
 data_value(f(x)).
 data_value(_).
 
+dangerous_value(user_error).
+dangerous_value(user_output).
+dangerous_value(user_input).
+dangerous_value('hg_attest_probe.txt').
+dangerous_value(double_quotes).
+dangerous_value(unknown).
+dangerous_value(gc).
+dangerous_value(700).
+dangerous_value(xfx).
+dangerous_value(hg_attest_op).
+dangerous_value(user:true).
+dangerous_value(system:true).
+dangerous_value(write(x)).
+dangerous_value("hg attest").
+dangerous_value([0'h, 0'g]).
+dangerous_value([h, g]).
+dangerous_value(-1).
+dangerous_value(0).
+dangerous_value(100000000000000000000).
+dangerous_value(1.0e300).
+dangerous_value('').
+dangerous_value('\n').
+dangerous_value('$VAR'(1)).
+dangerous_value(f(g(h(i)))).
+dangerous_value(alias(hg_attest_alias)).
+dangerous_value(end_of_file).
+dangerous_value([]).
+dangerous_value(true).
+
 shape(Spec, Args) :-
     spec_indicator(Spec, N/A),
     modes(N/A, Modes),
     (   data_value(V), maplist(mode_arg(V), Modes, Args)
     ;   mixed_args(Modes, Args)
+    ;   nth1(P, Modes, M), \+ goal_mode(M),
+        dangerous_value(V),
+        positional_args(Modes, P, V, Args)
     ).
+
+goal_mode(0).
+goal_mode(^).
+goal_mode(K) :- integer(K), K > 0.
+
+positional_args([], _, _, []).
+positional_args([M|Ms], P, V, [A|As]) :-
+    (   P =:= 1 -> A = V ; mode_arg(a, M, A) ),
+    P1 is P - 1,
+    positional_args(Ms, P1, V, As).
 
 %   Control constructs have no meta spec because the judge walks through
 %   them structurally; here their arguments are goals, since a data term in
@@ -250,6 +306,7 @@ run_shape(Spec, Args, Noise, Wires) :-
 run_goal(Goal, Noise, Wires) :-
     time_limit(T),
     nb_setval(hg_attest_msgs, msgs([])),
+    capture_aliases(Saved),
     snapshot(Before),
     (   with_output_to(string(Out),
                        ( catch(call_with_time_limit(T, once(Goal)), _, true) -> true ; true ))
@@ -257,15 +314,38 @@ run_goal(Goal, Noise, Wires) :-
     ;   Out = ""
     ),
     snapshot(After),
+    release_aliases(Saved, AliasOut),
     nb_getval(hg_attest_msgs, msgs(Msgs0)),
     nb_delete(hg_attest_msgs),
     diff(Before, After, [globals-hg_attest_msgs|Noise], Wires0),
     (   Out == "" -> Wires1 = Wires0
     ;   Wires1 = [wire(output, Out)|Wires0]
     ),
-    (   Msgs0 == [] -> Wires = Wires1
-    ;   reverse(Msgs0, Msgs), Wires = [wire(messages, Msgs)|Wires1]
+    (   AliasOut == [] -> Wires2 = Wires1
+    ;   Wires2 = [wire(alias_output, AliasOut)|Wires1]
+    ),
+    (   Msgs0 == [] -> Wires = Wires2
+    ;   reverse(Msgs0, Msgs), Wires = [wire(messages, Msgs)|Wires2]
     ).
+
+%   with_output_to/2 redirects current output only. A predicate that names
+%   user_output or user_error writes past it, so for the call both aliases
+%   point at memory streams, opened before the snapshot so the streams wire
+%   does not count them.
+capture_aliases(saved(OrigOut, OrigErr, MO, SO, ME, SE)) :-
+    once(stream_property(OrigOut, alias(user_output))),
+    once(stream_property(OrigErr, alias(user_error))),
+    new_memory_file(MO), open_memory_file(MO, write, SO), set_stream(SO, alias(user_output)),
+    new_memory_file(ME), open_memory_file(ME, write, SE), set_stream(SE, alias(user_error)).
+
+release_aliases(saved(OrigOut, OrigErr, MO, SO, ME, SE), AliasOut) :-
+    set_stream(OrigOut, alias(user_output)),
+    set_stream(OrigErr, alias(user_error)),
+    catch(close(SO), _, true), catch(close(SE), _, true),
+    catch(memory_file_to_string(MO, TO), _, TO = ""),
+    catch(memory_file_to_string(ME, TE), _, TE = ""),
+    catch(free_memory_file(MO), _, true), catch(free_memory_file(ME), _, true),
+    findall(Alias-Text, ( member(Alias-Text, [user_output-TO, user_error-TE]), Text \== "" ), AliasOut).
 
 snapshot([ globals-G, flags-F, ops-O, streams-S, modules-M, threads-T,
            records-R, random-Rn, dynpreds-D, cwd-C, files-Fi ]) :-

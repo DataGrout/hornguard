@@ -156,6 +156,10 @@ pinned(streams, writeln/_).
 %% tolerates it because its hosts capture output; here it is the one output
 %% predicate the generator let through, found by the attestation harness.
 pinned(streams, write_ln/_).
+%% normalize_space/2 takes an output spec such as atom(A), or a stream. With
+%% user_error or user_output as its first argument it writes there. SWI's
+%% sandbox declares it safe; the attestation's positional sweep found it.
+pinned(streams, normalize_space/2).
 pinned(streams, writef/_).
 pinned(streams, portray_clause/_).
 pinned(streams, print_message/_).

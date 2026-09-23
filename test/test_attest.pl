@@ -25,6 +25,12 @@ probe_op(_) :- op(700, xfx, hg_probe_op).
 probe_record(_) :- recordz(hg_attest_probe, x).
 probe_cwd(_) :- working_directory(_, '..').
 probe_random(_) :- random_between(1, 10, _).
+% Writes past current output, to the alias by name.
+probe_alias(_) :- format(user_error, "probe", []).
+% Impure only for one argument value: quiet under generic shapes, caught
+% by the positional sweep.
+probe_positional(S) :- ( S == user_error -> format(user_error, "probe", []) ; true ).
+probe_positional_file(F) :- ( F == 'hg_attest_probe.txt' -> open(F, write, St), close(St) ; true ).
 
 :- begin_tests(attest).
 
@@ -74,6 +80,17 @@ test(cwd_trips, [true(memberchk(wire(cwd, _), Ws))]) :-
 
 test(random_trips, [true(memberchk(wire(random, _), Ws))]) :-
     attest_predicate(test_attest:probe_random/1, impure([_-Ws|_])).
+
+test(alias_output_trips, [true(memberchk(wire(alias_output, [user_error-"probe"]), Ws))]) :-
+    attest_predicate(test_attest:probe_alias/1, impure([_-Ws|_])).
+
+test(positional_sweep_finds_a_value_dependent_write, [true(memberchk(wire(alias_output, _), Ws))]) :-
+    attest_predicate(test_attest:probe_positional/1, impure(Fired)),
+    member(_-Ws, Fired), memberchk(wire(alias_output, _), Ws), !.
+
+test(positional_sweep_finds_a_value_dependent_file, [true(memberchk(wire(files, _), Ws))]) :-
+    attest_predicate(test_attest:probe_positional_file/1, impure(Fired)),
+    member(_-Ws, Fired), memberchk(wire(files, _), Ws), !.
 
 test(undefined_is_skipped, [true(V == skipped(undefined))]) :-
     attest_predicate(no_such_predicate_hg/3, V).

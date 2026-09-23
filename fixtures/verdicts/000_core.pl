@@ -118,6 +118,13 @@ verdict(core_list_goal_in_meta,     iso, [iso], findall(_, [some_file], _),
         refused(escape_attempt, pinned(loading) + depth(1))).
 verdict(core_list_as_data_is_fine,  iso, [iso, prologue], member(_, [a, b]), admit).
 
+%% normalize_space/2 accepts a stream where an output spec is expected, and
+%% writes to it; found by the attestation's positional sweep, pinned.
+verdict(core_normalize_space_writes, swi, [iso, swi], normalize_space(user_error, a),
+        refused(capability_probe, pinned(streams))).
+verdict(core_normalize_space_spec_too, swi, [iso, swi], normalize_space(atom(_), a),
+        refused(capability_probe, pinned(streams))).
+
 %% A coroutine runs its goal at a later unification, in whoever's code path
 %% performs it. The goal would be judged; the moment would not. Pinned.
 verdict(core_pinned_freeze,        iso, [iso], freeze(X, atom(X)),

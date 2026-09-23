@@ -242,13 +242,53 @@ data_value([a, b]).
 data_value(f(x)).
 data_value(_).
 
+%   The kinds of value known to make a quiet predicate act, in strict-ISO
+%   spelling so every engine reads them the same. Swept one position at a
+%   time with the other arguments neutral.
+dangerous_value(user_error).
+dangerous_value(user_output).
+dangerous_value(user_input).
+dangerous_value('hg_attest_probe.txt').
+dangerous_value(double_quotes).
+dangerous_value(unknown).
+dangerous_value(700).
+dangerous_value(xfx).
+dangerous_value(hg_attest_op).
+dangerous_value(user:true).
+dangerous_value(write(x)).
+dangerous_value([0'h, 0'g]).
+dangerous_value([h, g]).
+dangerous_value(-1).
+dangerous_value(0).
+dangerous_value(100000000000000000000).
+dangerous_value('').
+dangerous_value('$VAR'(1)).
+dangerous_value(alias(hg_attest_alias)).
+dangerous_value(end_of_file).
+dangerous_value([]).
+dangerous_value(true).
+
 shape(true/0, 1, []) :- !.
 shape(N/A, I, Args) :-
     modes(N/A, Modes),
     findall(V, data_value(V), Vs),
     (   nth1(I, Vs, V), maplist(mode_arg(V), Modes, Args)
     ;   I = 7, mixed_args(Modes, Args)
+    ;   nth1(P, Modes, M), \+ goal_mode(M),
+        findall(DV, dangerous_value(DV), DVs), nth1(K, DVs, DV),
+        I = at(P, K),
+        positional_args(Modes, P, DV, Args)
     ).
+
+goal_mode(0).
+goal_mode(^).
+goal_mode(K) :- integer(K), K > 0.
+
+positional_args([], _, _, []).
+positional_args([M|Ms], P, V, [A|As]) :-
+    (   P =:= 1 -> A = V ; mode_arg(a, M, A) ),
+    P1 is P - 1,
+    positional_args(Ms, P1, V, As).
 
 modes((^)/2, [?, 0]) :- !.
 modes(N/A, Modes) :-

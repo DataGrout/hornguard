@@ -384,19 +384,28 @@ Fixtures are the contract every implementation of the judge must satisfy.
   generated profile that regeneration would change. Running it against the SWI
   development branch is how a changed builtin gets months of notice.
 - **Attestation by experiment** (`tools/attest.pl`): every allowed predicate
-  the engine defines is called, one solution under a time limit, under six
-  argument shapes and a mixed one, in a scratch directory, with tripwires
-  around output, printed messages, global variables, flags, the operator
-  table, open streams, the module list, threads, the recorded database,
-  every dynamic predicate's clause count, the random generator's state, the
-  working directory and the scratch directory's files. What trips during a
-  call to `true` is calibrated out as the harness's own noise. A change the
-  predicate made is `impure` unless the profile declares it (`swi_random`
-  moves the generator's state, on purpose), and an undeclared impurity fails
-  the suite. It cannot see effects outside the process or on time; those
-  stay with the pins and the review. Its first run found `write_ln/1`, a
-  backcomp predicate SWI's sandbox tolerates because its hosts capture
-  output, and that a list in goal position is `consult/1`.
+  the engine defines is called, one solution under a time limit, in a
+  scratch directory, with tripwires around output, the `user_output` and
+  `user_error` aliases (rebound to memory streams for the call), printed
+  messages, global variables, flags, the operator table, open streams, the
+  module list, threads, the recorded database, every dynamic predicate's
+  clause count, the random generator's state, the working directory and the
+  scratch directory's files. Shapes are of three kinds: one per generic data
+  value, one mixed, and a positional sweep in which each data argument in
+  turn takes each value of the kinds known to make a quiet predicate act
+  (stream aliases, file names, flag names, operator specs, module-qualified
+  goals, text as string, codes and chars, extreme numbers, odd atoms) while
+  the other arguments stay neutral. What trips during a call to `true` is
+  calibrated out as the harness's own noise. A change the predicate made is
+  `impure` unless the profile declares it (`swi_random` moves the generator's
+  state, on purpose), and an undeclared impurity fails the suite. What it
+  proves is bounded and stated: no allow line names a predicate that acts
+  under any listed value. It cannot cover the argument space, see effects
+  outside the process, or see time; those stay with the differential, the
+  pins and the review. Its generic shapes found `write_ln/1` and that a
+  list in goal position is `consult/1`; its positional sweep found
+  `normalize_space/2`, which takes a stream where an output spec is
+  expected and writes to it, and which SWI's sandbox declares safe.
 - **Engine attestation** (`tools/attest_engine.pl`): the same experiment
   inside Scryer and Trealla, whose predicates are different implementations
   from SWI's and whose backends carry manifests rather than being asked. For
@@ -413,13 +422,19 @@ Fixtures are the contract every implementation of the judge must satisfy.
   random state are not observable from inside these engines and stay with
   the review.
 - **Admit-then-run fuzzing** (`tools/fuzz.pl`): seeded terms built from the
-  allowed, meta, control and pinned vocabulary of the profiles, judged, and
-  every admitted one run in the attestation sandbox with the same tripwires.
-  The attestation asks whether each predicate is inert alone; this asks
-  whether the judge's compositions of them are, and whether a term it admits
-  can do anything a term it refuses could. A wire on an admitted term is a
-  composition failure and fails the suite. The seed is fixed in the test so a
-  failure reproduces; `make fuzz` takes another count and seed.
+  allowed, meta and control vocabulary of the profiles, with pinned goals
+  placed where a judge can lose sight of them: in a list handed to `call/1`,
+  behind `=`, `=..` or `functor/3`, under negation, inside `catch/3`, in the
+  untaken branch of an if-then-else, module-qualified, as a closure completed
+  at the call. The pinned goals are canaries, harmless and visible to a
+  tripwire (a written atom, a global, an operator, a fact, a scratch file, a
+  record), so a judge miss shows up as a wire and never as a real effect.
+  Every term is judged; every admitted term runs in the attestation sandbox.
+  A wire on an admitted term is a composition failure. A term built with a
+  canary where it would run is tagged by the generator, and its admission is
+  a judge miss whether or not it tripped. A canary as data must be admitted
+  and, run, stay data. The seed is fixed in the test so a failure reproduces;
+  `make fuzz` takes another count and seed.
 - **Composition** (`test/test_compose.pl`): the pieces end to end. Every
   fixture the judge admits on an engine we have runs inert. Judged dispatch
   goes through the worker to a guarded canonical form, is read back and run
