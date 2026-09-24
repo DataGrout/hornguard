@@ -10,7 +10,6 @@ license = "Apache-2.0"
 keywords = ["prolog", "sandbox", "security", "logic-programming", "firewall"]
 categories = ["api-bindings", "development-tools"]
 readme = "README.md"
-exclude = ["tests/"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
