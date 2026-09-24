@@ -299,6 +299,14 @@ adversarial by construction and all of it runs under `make test`:
 | Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
 | Rust client | 20 integration tests, every one against a real worker; no mocks, since a mock would only prove the crate agrees with itself |
 
+CI runs it on three SWI-Prolog versions: 9.2.9, the version the profiles were
+attested on and the one a distribution's stable package gives most hosts,
+where the generated profile must also regenerate unchanged; the PPA's stable
+channel, which is what a current install gets; and its development branch,
+so a builtin that changes character is seen months before a release carries
+it. Scryer and Trealla are built on the PPA jobs for the engine attestation
+and the cross-engine reader fixtures.
+
 The public suite is the contract, and what belongs in it is decided by the
 mutation harness rather than by taste: any case needed to kill a mutant is
 structural and stays here. A host can run additional fixtures of its own —
