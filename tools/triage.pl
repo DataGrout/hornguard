@@ -101,10 +101,10 @@ indicator(N/A) :- atom(N), integer(A).
 print_triage(Groups) :-
     (   Groups == []
     ->  format("no refusals~n")
-    ;   format("~w~t~12|~w~t~30|~w~t~62|~w~t~78|~w~t~88|~w~n",
+    ;   format("~w~t~12|~w~t~30|~w~t~62|~w~t~92|~w~t~102|~w~n",
                ['standing', 'class', 'rule', 'indicator', 'refusals', 'scopes']),
         forall(member(group(S, C, R, I, N, K), Groups),
-               format("~w~t~12|~w~t~30|~q~t~62|~q~t~78|~d~t~88|~d~n", [S, C, R, I, N, K])),
+               format("~w~t~12|~w~t~30|~q~t~62|~q~t~92|~d~t~102|~d~n", [S, C, R, I, N, K])),
         aggregate_all(count, member(group(recurring, _, _, _, _, _), Groups), NR),
         length(Groups, NG),
         format("~n~d groups, ~d recurring. A recurring shadowing group is usually a host table that wants author_defines.~n", [NG, NR])
