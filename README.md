@@ -1,5 +1,10 @@
 # Hornguard
 
+[![CI](https://github.com/DataGrout/hornguard/actions/workflows/ci.yml/badge.svg)](https://github.com/DataGrout/hornguard/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/hornguard.svg)](https://crates.io/crates/hornguard)
+[![docs.rs](https://img.shields.io/docsrs/hornguard)](https://docs.rs/hornguard)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 **A firewall for Prolog.** Hornguard stands between an untrusted author and a
 Prolog engine. The author it was built for is an AI agent writing rules and
 queries into a shared engine: an agent that may be mistaken, may be following

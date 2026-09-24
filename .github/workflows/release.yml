@@ -1,0 +1,56 @@
+name: release
+
+# A pushed tag v* becomes a GitHub release: the pack archive attached, the
+# notes taken from CHANGELOG.md's section for that version. tools/tag.sh is
+# what makes the tag, after checking that the versions agree and the suite
+# passes; this workflow checks the versions again and does not re-run the
+# suite, since CI runs on the same commit.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versions agree with the tag
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          pack=$(sed -n "s/^version('\([0-9.]*\)')\./\1/p" pack.pl)
+          crate=$(sed -n 's/^version = "\([0-9.]*\)"/\1/p' crates/hornguard/Cargo.toml | head -1)
+          [ "$pack" = "$V" ]  || { echo "pack.pl says $pack, tag says $V"; exit 1; }
+          [ "$crate" = "$V" ] || { echo "Cargo.toml says $crate, tag says $V"; exit 1; }
+          grep -q "^## $V\b" CHANGELOG.md || { echo "CHANGELOG.md has no section for $V"; exit 1; }
+
+      # The pack: what pack_install/1 needs and nothing else.
+      - name: Build the pack archive
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          mkdir -p "dist/hornguard-$V"
+          cp -r pack.pl prolog profiles LICENSE NOTICE README.md CHANGELOG.md SECURITY.md "dist/hornguard-$V/"
+          (cd dist && zip -qr "hornguard-$V.zip" "hornguard-$V")
+          ls -l dist
+
+      - name: Release notes from the changelog
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk -v v="$V" '
+            /^## / { on = ($2 == v) ; if (!on && seen) exit ; if (on) { seen = 1; next } }
+            on { print }
+          ' CHANGELOG.md > dist/notes.md
+          [ -s dist/notes.md ] || { echo "no notes extracted"; exit 1; }
+          head -5 dist/notes.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" "dist/hornguard-$V.zip" \
+            --title "hornguard $V" --notes-file dist/notes.md --verify-tag
