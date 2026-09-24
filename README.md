@@ -22,8 +22,10 @@ flowchart LR
         J --- K[(Pinned classes)]
         J --- H[(Host policy)]
     end
-    J -->|admit| E[Prolog engine]
+    J -->|admit, or admit_with a guarded term| E[Prolog engine]
+    E -->|result| A
     J -->|admit_needs| N[Host loads a profile<br/>or stores a predicate]
+    N -->|judged again| J
     J -->|refused + class| R[Host: error to author,<br/>event to operator]
 ```
 
