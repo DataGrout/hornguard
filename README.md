@@ -16,7 +16,7 @@ executes what it judges.
 
 It is a firewall in the strict sense. The default is deny. Every rule is an
 allow rule. A set of capability classes is pinned shut and no profile can
-reopen them. And every refusal is classified, so a host learns not only that a
+reopen them. Every refusal is classified, so a host learns not only that a
 goal was stopped but whether it is being probed.
 
 ```mermaid
@@ -103,19 +103,29 @@ author is an agent. A model that has been told to fetch a file will try
 `open/3`, then `read_term/2` inside a `findall`, then build the goal from
 atoms and `call` it, each attempt shaped by the last refusal. To the host every
 one of those is a stopped goal; to an operator the sequence is the difference
-between a confused agent and an operated one. `capability_probe` is a pinned
-predicate at the top level. `escape_attempt` is one hidden inside a
-meta-argument, where the author expected the outer goal to pass. `reconnaissance`
-is reflection. `shadowing` is a clause whose head would stand in for a
-definition the judge reasons about: a trusted or allowed predicate, a pinned
-one, a control construct. `semantics` is a program with no single meaning and
-is not a threat signal. `evasion` is a hostile term shape such as a cyclic
-goal. Classification never changes a verdict; it is metadata on a decision
-already made, and it names the shape the boundary saw, not the author's
-intent. A host reads intent from recurrence: one `shadowing` refusal in one
-namespace is worth a look, the same one across a hundred namespaces is a
-policy gap, usually a host table that wants `author_defines`. `tools/triage.pl`
-does that grouping over a shadow's or a census's refusals.
+between a confused agent and an operated one.
+
+| Class | What the boundary saw |
+|---|---|
+| `benign_miss` | an unknown predicate, or one allowed only by a profile not in force |
+| `capability_probe` | a pinned predicate at the top level |
+| `escape_attempt` | a pinned predicate hidden inside a meta-argument, an unbound goal at a sink, a module-qualified goal: the author expected the outer goal to pass |
+| `reconnaissance` | reflection, at any depth |
+| `shadowing` | a clause whose head would stand in for a definition the judge reasons about: a trusted or allowed predicate, a pinned one, a control construct |
+| `semantics` | a program with no single meaning; not a threat signal |
+| `evasion` | a hostile term shape, such as a cyclic goal |
+
+Three things to hold onto when reading them:
+
+- **Classification never changes a verdict.** It is metadata on a decision
+  already made.
+- **A class names the shape the boundary saw, not the author's intent.** The
+  threat model says why: a mistaken agent, an injected one and an attacker
+  produce the same shapes.
+- **Intent is read from recurrence.** One `shadowing` refusal in one namespace
+  is worth a look; the same one across a hundred namespaces is a policy gap,
+  usually a host table that wants `author_defines`. `tools/triage.pl` does
+  that grouping over a shadow's or a census's refusals.
 
 ## Dynamic dispatch, judged at the sink
 
@@ -132,33 +142,41 @@ at the moment it runs, and the verdict is `admit_with(Guarded)`:
 V = admit_with((member(G, Gs), hornguard_call(G), maplist(hornguard_call(P), Xs))).
 ```
 
-`hornguard_call/N` judges its goal under the loaded policy, plus whatever the
-host set with `hornguard_set_runtime_context/1` for the namespace whose rules
-are running, and only then calls it. A refusal is thrown as
-`error(Reason, hornguard(Class, runtime(Rule)))`, and `catch/3` in a guarded
-term becomes `hornguard_catch/3`, which cannot swallow it, a time limit, or a
-resource error. Bound goals are still judged statically, at their depth, with
-their classification; the runtime judge only takes what the static one could
-not see. Nothing runs unjudged in either mode, and a host that wants the runtime
-judgment made in a process the author cannot reach defines
-`hornguard:runtime_judge_hook/2`. Run `Guarded`, never the original: the
-worker's `canonical` under this mode is the guarded term.
+What the guarded form does when it runs:
+
+- **`hornguard_call/N` judges, then calls.** The goal is judged under the
+  loaded policy, plus whatever the host set with
+  `hornguard_set_runtime_context/1` for the namespace whose rules are running,
+  and only then called.
+- **A runtime refusal is thrown as `error(Reason, hornguard(Class, runtime(Rule)))`.**
+- **`catch/3` becomes `hornguard_catch/3`**, which cannot swallow that
+  refusal, a time limit, or a resource error.
+- **Bound goals are still judged statically**, at their depth, with their
+  classification. The runtime judge only takes what the static one could not
+  see, so nothing runs unjudged in either mode.
+- **A host can move the runtime judgment out of the engine** by defining
+  `hornguard:runtime_judge_hook/2`.
+- **Run `Guarded`, never the original.** The worker's `canonical` under this
+  mode is the guarded term.
 
 ## Batteries and other installed code
 
 A host that installs a library of rules into an author's space, DataGrout's
 batteries for instance, has two questions: does the library itself pass, and
-may authors call it. Judge the library's clauses as a program with its own
-profile named in `defining/1`, so its heads are the definitions the profile
-promises rather than shadows of it, and give that profile `allow` and
-`meta_spec` entries for what the library exports. Authors then call the library
-through a profile like any other, closures included. A library that meta-calls
-its arguments or reads clauses is exactly the case judged dispatch exists for;
-judge it under `dynamic_dispatch(judged)` and install the guarded form. If the
-library defines operators, declare them with `op/3` terms in the profiles
-directory: the worker's reader honours them, and the canonical form it emits is
-operator-free, so the engine never needs to. `op/3` itself stays pinned for
-authors.
+may authors call it.
+
+- **Judge the library as a program with its own profile named in `defining/1`.**
+  Its heads are then the definitions that profile promises rather than shadows
+  of it. Give the profile `allow` and `meta_spec` entries for what the library
+  exports, and authors call it through that profile like any other, closures
+  included.
+- **A library that meta-calls its arguments or reads clauses** is exactly the
+  case judged dispatch exists for: judge it under `dynamic_dispatch(judged)` and
+  install the guarded form.
+- **A library that defines operators** declares them with `op/3` terms in the
+  profiles directory. The worker's reader honours them, and the canonical form
+  it emits is operator-free, so the engine never needs to. `op/3` itself stays
+  pinned for authors.
 
 ## Using it
 
