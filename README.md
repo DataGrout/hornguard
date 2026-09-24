@@ -23,16 +23,19 @@ goal was stopped but whether it is being probed.
 flowchart TB
     A[Untrusted author] -->|goal or clause| J
     subgraph Hornguard
-        direction LR
-        P[(Profiles)] --- J[Judge] --- K[(Pinned classes)]
-        J --- H[(Host policy)]
+        P[(Profiles)] --- J[Judge]
+        K[(Pinned classes)] --- J
+        H[(Host policy)] --- J
     end
-    J -->|admit, or admit_with<br/>a guarded term| E[Prolog engine]
+    J -->|admit / admit_with| E[Prolog engine]
     J -->|admit_needs| N[Host loads a profile<br/>or stores a predicate]
     J -->|refused + class| R[Host: error to author,<br/>event to operator]
     E -->|result| A
-    N -.->|judged again| J
 ```
+
+`admit_with` carries a guarded term the host runs in place of the original.
+`admit_needs` names what the host must supply first; once it has, the same
+term is judged again.
 
 The name is Horn clauses plus guard: the condition a clause must pass before its
 body runs, applied at the call port to code you did not write.
