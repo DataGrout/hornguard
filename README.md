@@ -162,7 +162,8 @@ What the guarded form does when it runs:
 ## Batteries and other installed code
 
 A host that installs a library of rules into an author's space, DataGrout's
-batteries for instance, has two questions: does the library itself pass, and
+[logic batteries](https://github.com/DataGrout/logic-batteries) for instance,
+has two questions: does the library itself pass, and
 may authors call it.
 
 - **Judge the library as a program with its own profile named in `defining/1`.**

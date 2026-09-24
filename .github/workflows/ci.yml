@@ -72,6 +72,11 @@ jobs:
   suite:
     name: suite (swi ${{ matrix.swi }})
     runs-on: ubuntu-latest
+    # The development branch is early warning, not a gate: a crash or a
+    # changed builtin there is reported, and the attested and stable jobs
+    # decide whether main is green. The first devel run found an engine
+    # crash in an error path that stable does not have.
+    continue-on-error: ${{ matrix.swi == 'devel' }}
     strategy:
       fail-fast: false
       matrix:
