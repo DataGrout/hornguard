@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — 2026-09-24
+
+- Fix: `pack_install/1` failed on the 0.1.0 archive. SWI's pack manager runs `make`, `make check` and `make install` when the pack root carries a Makefile, and the Makefile's default target was the whole suite, which needs the engines and the Rust toolchain. `make` and `make install` are no-ops now; `make check` loads the pack; the suite is `make test` as before. No change to the judge, the profiles or the worker.
+
 ## 0.1.0 — 2026-09-22
 
 First release. The judge, the profiles, the policy file, the judge worker,

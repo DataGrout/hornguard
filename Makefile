@@ -1,7 +1,17 @@
 SWIPL ?= swipl
 CARGO ?= cargo
 
-.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-triage test-crate check differential attest attest-engines fuzz triage gen-profiles manifests mutation worker
+## The pack is pure Prolog and has nothing to build. SWI's pack manager runs
+## `make` after unpacking an archive that carries a Makefile, then `make
+## check`, then `make install`; those must do nothing here, since the suite
+## needs the engines and the Rust toolchain and is `make test`.
+all:
+	@true
+
+install:
+	@true
+
+.PHONY: all install test test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-triage test-crate check differential attest attest-engines fuzz triage gen-profiles manifests mutation worker
 
 test: test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-triage test-crate
 
