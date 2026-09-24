@@ -67,9 +67,14 @@ flowchart TB
     subgraph untrusted [Untrusted position]
         BE[Backend enforcement<br/><i>planned</i><br/>caps, isolation, second opinion]
         EN[Engine]
+        RT[Runtime judge<br/>hornguard_call/N at a sink,<br/>under dynamic_dispatch judged]
     end
-    JD -->|admitted term| BE --> EN
+    JD -->|admitted term,<br/>or admit_with a guarded one| BE --> EN
+    JD -->|admit_needs| NH[Host loads a profile<br/>or stores a predicate] -->|judged again| JD
     JD -->|refused + class| EV[Events to host]
+    EN -->|goal bound only now| RT
+    RT -->|admitted| EN
+    RT -->|refused, uncatchable| EV
     EN --> RS[Result]
 ```
 
@@ -160,20 +165,25 @@ an engine error.
 ```mermaid
 flowchart TD
     G[Goal in call position] --> U{Unbound?}
-    U -->|yes| R1[refused: unbound_goal]
+    U -->|yes, dynamic_dispatch refused| R1[refused: unbound_goal]
+    U -->|yes, dynamic_dispatch judged| RW[rewritten to hornguard_call/N,<br/>judged when it runs]
     U -->|no| Q{Module-qualified?}
     Q -->|yes| R2[refused: qualified]
-    Q -->|no| C{Control construct?}
+    Q -->|no| C{Control construct,<br/>true, fail, cut?}
     C -->|yes| W[Walk children,<br/>same depth] --> G
-    C -->|no| P{Pinned class?}
+    C -->|no| CL{Callable?}
+    CL -->|no| R0[refused: not_callable]
+    CL -->|yes| P{Pinned class?}
     P -->|yes| R3[refused: pinned<br/>probe / escape / recon by depth]
     P -->|no| TR{Host trusts it?}
-    TR -->|yes| S1[Apply declared spec] --> A[admit]
-    TR -->|no| F{Profile in force allows?}
+    TR -->|yes| S1[Apply declared spec] --> AR
+    TR -->|no| F{Profile in force<br/>or policy allow?}
     F -->|yes| MS{Spec known?}
-    MS -->|yes| S2[Judge goal args at depth+1,<br/>complete closures first] --> A
+    MS -->|yes| S2[Judge goal args at depth+1,<br/>complete closures first] --> AR
     MS -->|no, engine says meta| R4[refused: meta_spec]
-    MS -->|no, first-order| A
+    MS -->|no, first-order| AR{Arithmetic with a<br/>pinned evaluable?}
+    AR -->|yes| R6[refused: evaluable]
+    AR -->|no| A[admit]
     F -->|no| AV{Known profile,<br/>not in force?}
     AV -->|yes| N1[need: profile]
     AV -->|no| DF{defer_unknown and<br/>engine lacks it?}
@@ -255,8 +265,8 @@ flowchart LR
         SWI[swi*<br/>generated from the engine]
     end
     subgraph host [Installed by the host]
-        HOSTP[host profiles<br/>allow + meta_spec]
-        POL[policy file<br/>allow, trust, options, unpin]
+        HOSTP[host profiles<br/>allow, meta_spec, op,<br/>engine, enforcement]
+        POL[policy file<br/>allow, trust, author_defines,<br/>options, unpin]
     end
     PIN[pinned classes<br/>refused before any profile] -.->|overrides| ISO & PRO & SWI & HOSTP
     ISO --> PRO --> SWI --> HOSTP --> POL
