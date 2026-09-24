@@ -197,8 +197,9 @@ oracle policy. `Class` is one of:
 |---|---|
 | `benign_miss` | unknown predicate, or allowed by a profile not in force |
 | `capability_probe` | pinned predicate at the top level |
-| `escape_attempt` | pinned predicate inside a meta-argument, unbound goal in call position, module qualification, head shadowing |
+| `escape_attempt` | pinned predicate inside a meta-argument, unbound goal in call position, module qualification |
 | `reconnaissance` | reflection at any depth |
+| `shadowing` | a clause head that would stand in for a definition the judge reasons about: trusted, allowed, pinned, control, qualified, unbound |
 | `semantics` | admissible capability-wise, but no single intended meaning |
 | `evasion` | hostile term shape: cyclic, pathologically deep |
 
@@ -210,6 +211,17 @@ oracle policy. `Class` is one of:
 `profile(Name)`, `trusted`, `qualified`. A pinned rule nested
 inside a meta-argument carries `+ depth(N)`: benign code rarely buries a
 pinned goal three meta-arguments deep.
+
+The class names the shape the boundary saw, not the author's intent, and the
+threat model says why: a mistaken agent, an injected one and an attacker
+produce the same shapes. Intent is the host's to read, and the reading that
+works is recurrence. A `shadowing` refusal of one head in one namespace is
+worth a look; the same head refused across most of a host's namespaces is a
+policy gap, in every case seen so far a host table authors legitimately fill
+that wanted `author_defines`. `tools/triage.pl` groups a list of refusals by
+class, rule and indicator, counts the scopes each recurs in, and separates the
+recurring from the isolated; a shadow or a census should be read through it
+before any refusal is read as an attack.
 
 Classification never changes a verdict. It is metadata on a decision already
 made.
@@ -451,6 +463,11 @@ Fixtures are the contract every implementation of the judge must satisfy.
   runtime wrapper and trips nothing on the way. A stored program is rewritten,
   loaded and called with goals built from data. A host operator is read,
   judged, emitted operator-free and read back into the same term.
+- **Triage** (`tools/triage.pl`): not a test of the judge but of the reading
+  of it. Refusals paired with the scope each came from are grouped by class,
+  rule shape and indicator, counted by refusals and by distinct scopes, and
+  marked recurring or isolated. A shadow or a census is read through it
+  before any refusal is read as an attack.
 - **Mutation** (`tools/mutate.py`): one rule of the walk disabled at a time in a
   copy of the judge; every mutant must fail the suite.
 - **Worker** (`test/test_worker.pl`): reader fixtures in-process, and protocol

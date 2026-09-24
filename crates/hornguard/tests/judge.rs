@@ -120,7 +120,7 @@ fn a_clause_head_may_not_shadow_a_pinned_predicate() {
     let v = hg.judge_clause("shell(_) :- true").unwrap();
     match v {
         Verdict::Refused { class, rule, .. } => {
-            assert_eq!(class, Class::EscapeAttempt);
+            assert_eq!(class, Class::Shadowing);
             assert_eq!(rule, "head(pinned(process))");
         }
         other => panic!("expected a refusal, got {other:?}"),
@@ -245,7 +245,7 @@ fn a_clause_may_not_define_a_trusted_host_predicate() {
     let v = hg.judge_clause("lookup_price(_, _, 0) :- true").unwrap();
     match v {
         Verdict::Refused { class, rule, .. } => {
-            assert_eq!(class, Class::EscapeAttempt);
+            assert_eq!(class, Class::Shadowing);
             assert_eq!(rule, "head(trusted)");
         }
         other => panic!("expected a refusal, got {other:?}"),

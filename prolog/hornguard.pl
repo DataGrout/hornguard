@@ -61,7 +61,12 @@ class table (pinned/2), and returns a verdict:
       Reason: an ISO error term the host may show the author, subject to
               its oracle policy
       Class:  benign_miss | capability_probe | escape_attempt | reconnaissance
-            | semantics | evasion
+            | shadowing | semantics | evasion
+              shadowing is the head family: a clause that would stand in
+              for a definition the judge reasons about. Its body is walked
+              like any other; the harm is to what the host's predicate
+              answers, not to what a call can do, and in practice it is
+              the class a policy gap shows up as (see tools/triage.pl).
       Rule:   pinned(Class) | unbound_goal | qualified | meta_spec(Indicator)
             | unknown | not_callable | head(Why) | directive | unsupported(What)
             | evaluable(Name/Arity)
@@ -875,23 +880,23 @@ hg_allow_head_in_body(Head, ctx(B, P, Allow, Trust, D, Df, Au), ctx(B, P, [Ind|A
 %   sandboxed space with that head would stand in for it.
 hg_head(Var, _) :-
     var(Var), !,
-    throw(hg_refused(instantiation_error, escape_attempt, unbound_head)).
+    throw(hg_refused(instantiation_error, shadowing, unbound_head)).
 hg_head(_:_, _) :- !,
-    throw(hg_refused(permission_error(modify, static_procedure, (:)/2), escape_attempt, head(qualified))).
+    throw(hg_refused(permission_error(modify, static_procedure, (:)/2), shadowing, head(qualified))).
 hg_head(Head, Ctx) :-
     callable(Head), !,
     functor(Head, Name, Arity),
     Ind = Name/Arity,
     (   hg_control_indicator(Ind)
-    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(control)))
+    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), shadowing, head(control)))
     ;   hg_pinned(Class, Ind)
-    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(pinned(Class))))
+    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), shadowing, head(pinned(Class))))
     ;   hg_author_defines(Ind, Ctx)
     ->  true
     ;   hg_trusted(Ind, Ctx, _)
-    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(trusted)))
+    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), shadowing, head(trusted)))
     ;   hg_allow(Profile, Ind), \+ hg_defining(Profile, Ctx)
-    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), escape_attempt, head(profile(Profile))))
+    ->  throw(hg_refused(permission_error(modify, static_procedure, Ind), shadowing, head(profile(Profile))))
     ;   true
     ).
 hg_head(Head, _) :-

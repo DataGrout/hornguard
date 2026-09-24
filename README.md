@@ -99,10 +99,16 @@ one of those is a stopped goal; to an operator the sequence is the difference
 between a confused agent and an operated one. `capability_probe` is a pinned
 predicate at the top level. `escape_attempt` is one hidden inside a
 meta-argument, where the author expected the outer goal to pass. `reconnaissance`
-is reflection. `semantics` is a program with no single meaning and is not a
-threat signal. `evasion` is a hostile term shape such as a cyclic goal.
-Classification never changes a verdict; it is metadata on a decision already
-made.
+is reflection. `shadowing` is a clause whose head would stand in for a
+definition the judge reasons about: a trusted or allowed predicate, a pinned
+one, a control construct. `semantics` is a program with no single meaning and
+is not a threat signal. `evasion` is a hostile term shape such as a cyclic
+goal. Classification never changes a verdict; it is metadata on a decision
+already made, and it names the shape the boundary saw, not the author's
+intent. A host reads intent from recurrence: one `shadowing` refusal in one
+namespace is worth a look, the same one across a hundred namespaces is a
+policy gap, usually a host table that wants `author_defines`. `tools/triage.pl`
+does that grouping over a shadow's or a census's refusals.
 
 ## Dynamic dispatch, judged at the sink
 
@@ -287,6 +293,7 @@ adversarial by construction and all of it runs under `make test`:
 | Attestation by experiment | every allowed predicate the engine defines is called with tripwires around output, the `user_output` and `user_error` aliases, messages, globals, flags, operators, streams, modules, threads, records, dynamic clauses, the random state and the scratch directory: under generic argument shapes, and with each argument position swept through the kinds of value known to make a quiet predicate act (stream aliases, file names, flag names, operator specs, qualified goals, text, extreme numbers). An undeclared change fails. What it proves is that no allow line names a predicate that acts under any of those; a predicate impure only under a value outside that list is the differential's and the review's to catch |
 | Engine attestation | the same experiment inside Scryer and Trealla: a strict-ISO probe generated per allowed predicate the engine's manifest names, run in that engine, one process each, with the tripwires it can express; a manifest entry the engine does not define is reported, not passed |
 | Admit-then-run fuzzing | seeded terms built from the allowed, meta and control vocabulary with harmless pinned canaries placed where a judge can lose a goal: in a list handed to `call`, behind `=`, `=..` or `functor/3`, under negation, inside `catch`, in an untaken branch, module-qualified, as a closure completed at the call. Every admitted term runs in the attestation sandbox; a tripwire is a composition failure, and an admitted term built with a canary where it runs is a judge miss whether or not it tripped. Canaries as data must be admitted and stay inert |
+| Triage | refusals grouped by class, rule and indicator across scopes; recurring is a policy gap, isolated is worth a look. What a shadow or a census is read through before any refusal is read as an attack |
 | Composition | fixtures the judge admits run inert; judged dispatch through the worker, the canonical form and the runtime half, refusing at the sink inside the sandbox; a host operator read, judged, emitted operator-free and read back |
 | Mutation | one rule of the walk disabled at a time; every mutant must fail the suite |
 | Worker | reader fixtures, and the stdio protocol against a spawned worker, including input that must not kill it |
@@ -309,7 +316,7 @@ everything above. Security reports: [SECURITY.md](SECURITY.md).
 | `profiles/` | `iso`, `prologue`, generated `swi*`, the pinned class table, and `REVIEWS.md`, the record of who attested which generation |
 | `fixtures/verdicts/` | Conformance fixtures |
 | `test/` | plunit suites |
-| `tools/` | Profile generator, sandbox differential, attestation harnesses, fuzzer, mutation harness (`make gen-profiles`, `make differential`, `make attest`, `make attest-engines`, `make fuzz`, `make mutation`) |
+| `tools/` | Profile generator, sandbox differential, attestation harnesses, fuzzer, triage, mutation harness (`make gen-profiles`, `make differential`, `make attest`, `make attest-engines`, `make fuzz`, `make triage`, `make mutation`) |
 | `crates/hornguard` | The Rust client: spawns a judge worker and returns typed verdicts |
 
 ## License

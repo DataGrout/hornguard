@@ -264,7 +264,7 @@ test(runtime_profile_joins_without_being_named, [true(V = admit_with(hornguard_c
     hornguard_admit(iso, [], call(_G), [dynamic_dispatch(judged)], V).
 
 test(no_clause_may_define_the_runtime_calls,
-     [true(V = refused(_, escape_attempt, head(profile(hornguard_runtime))))]) :-
+     [true(V = refused(_, shadowing, head(profile(hornguard_runtime))))]) :-
     hornguard_admit_clause(iso, [iso], (hornguard_call(_) :- true), V).
 
 % The runtime half: hornguard_call/N judges under the loaded policy and the
@@ -334,7 +334,7 @@ test(a_host_hook_decides_when_defined,
 % A battery's clauses define the predicates its profile promises. Judged as
 % a program with that profile named in defining/1, its heads are not shadows.
 test(profile_heads_are_shadows_by_default,
-     [true(V = refused(_, escape_attempt, head(profile(prologue))))]) :-
+     [true(V = refused(_, shadowing, head(profile(prologue))))]) :-
     hornguard_admit_program(iso, [iso], [ (last([X], X) :- true) ], V).
 
 test(profile_heads_are_definitions_under_defining, [true(V == admit)]) :-
@@ -342,11 +342,11 @@ test(profile_heads_are_definitions_under_defining, [true(V == admit)]) :-
                             [defining([prologue])], V).
 
 test(defining_one_profile_does_not_unshadow_another,
-     [true(V = refused(_, escape_attempt, head(profile(iso))))]) :-
+     [true(V = refused(_, shadowing, head(profile(iso))))]) :-
     hornguard_admit_program(iso, [iso], [ (atom_length(_, 0) :- true) ], [defining([prologue])], V).
 
 test(defining_never_unpins,
-     [true(V = refused(_, escape_attempt, head(pinned(process))))]) :-
+     [true(V = refused(_, shadowing, head(pinned(process))))]) :-
     hornguard_admit_clause(iso, [iso], (shell(_) :- true), [defining([iso, prologue])], V).
 
 :- end_tests(defining).

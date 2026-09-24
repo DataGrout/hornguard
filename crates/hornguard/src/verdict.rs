@@ -98,11 +98,17 @@ pub enum Class {
     /// A pinned predicate called at the top level.
     CapabilityProbe,
     /// A pinned predicate hidden inside a meta-argument, an unbound goal in
-    /// call position, module qualification, or a head shadowing something the
-    /// judge reasons about. The author expected the outer goal to pass.
+    /// call position, or module qualification. The author expected the outer
+    /// goal to pass.
     EscapeAttempt,
     /// Reflection, at any depth.
     Reconnaissance,
+    /// A clause whose head would stand in for a definition the judge reasons
+    /// about: a trusted, allowed, pinned or control predicate, a qualified or
+    /// unbound head. The body is walked regardless; the harm is to what the
+    /// host's predicate answers. Read it by recurrence: one is worth a look,
+    /// the same head across many scopes is a policy gap.
+    Shadowing,
     /// Admissible capability-wise, but with no single intended meaning:
     /// recursion through negation or aggregation, or negation used as if it
     /// bound a variable. Not a threat signal.
@@ -117,7 +123,7 @@ pub enum Class {
 impl Class {
     /// True for the classes that indicate someone testing the boundary:
     /// [`Class::CapabilityProbe`], [`Class::EscapeAttempt`],
-    /// [`Class::Reconnaissance`] and [`Class::Evasion`].
+    /// [`Class::Reconnaissance`], [`Class::Shadowing`] and [`Class::Evasion`].
     ///
     /// [`Class::BenignMiss`] and [`Class::Semantics`] are ordinary author
     /// mistakes. An unknown class is treated as adversarial: a newer worker
@@ -132,6 +138,7 @@ impl Class {
             Class::CapabilityProbe => "capability_probe",
             Class::EscapeAttempt => "escape_attempt",
             Class::Reconnaissance => "reconnaissance",
+            Class::Shadowing => "shadowing",
             Class::Semantics => "semantics",
             Class::Evasion => "evasion",
             Class::Other(s) => s,
@@ -152,6 +159,7 @@ impl From<&str> for Class {
             "capability_probe" => Class::CapabilityProbe,
             "escape_attempt" => Class::EscapeAttempt,
             "reconnaissance" => Class::Reconnaissance,
+            "shadowing" => Class::Shadowing,
             "semantics" => Class::Semantics,
             "evasion" => Class::Evasion,
             other => Class::Other(other.to_string()),

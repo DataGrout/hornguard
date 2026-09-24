@@ -45,15 +45,15 @@ test(trusted_body_is_not_walked, [true(V == admit)]) :-
 %   The trusted definition is the one whose body is never walked, so an
 %   author may not store a clause with that head and stand in for it.
 test(clause_may_not_define_a_trusted_predicate,
-     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+     [true(V = refused(_, shadowing, head(trusted)))]) :-
     hornguard_admit_clause((lookup_price(_, _, 0) :- true), V).
 
 test(fact_may_not_define_a_trusted_predicate,
-     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+     [true(V = refused(_, shadowing, head(trusted)))]) :-
     hornguard_admit_clause(with_tenant(any, true), V).
 
 test(program_may_not_define_a_trusted_predicate,
-     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+     [true(V = refused(_, shadowing, head(trusted)))]) :-
     hornguard_admit_program([ (tiered(C) :- customer_tier(C, gold)),
                               (lookup_price(_, _, 0) :- true) ], V).
 
@@ -255,11 +255,11 @@ test(a_declared_head_with_no_allow_is_still_unknown_to_call, [true(V == admit_ne
 
 % Everything not declared keeps the rule.
 test(a_trusted_predicate_not_declared_is_still_not_definable,
-     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+     [true(V = refused(_, shadowing, head(trusted)))]) :-
     hornguard_admit_clause(lookup_price(_, _, 0), V).
 
 test(a_program_mixing_both_is_judged_clause_by_clause,
-     [true(V = refused(_, escape_attempt, head(trusted)))]) :-
+     [true(V = refused(_, shadowing, head(trusted)))]) :-
     hornguard_admit_program([ attribute(a, b, c), (lookup_price(_, _, 0) :- true) ], V).
 
 test(the_option_reaches_the_judge_as_one_list, [true(memberchk(author_defines(L), Os)), true(msort(L, [attribute/3, note/1]))]) :-

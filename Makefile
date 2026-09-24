@@ -1,9 +1,9 @@
 SWIPL ?= swipl
 CARGO ?= cargo
 
-.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-crate check differential attest attest-engines fuzz gen-profiles manifests mutation worker
+.PHONY: test test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-triage test-crate check differential attest attest-engines fuzz triage gen-profiles manifests mutation worker
 
-test: test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-crate
+test: test-fixtures test-policy test-generated test-worker test-differential test-attest test-attest-engines test-fuzz test-compose test-triage test-crate
 
 ## Attestation by experiment: every allowed predicate the engine defines is
 ## called under several argument shapes with tripwires around output, globals,
@@ -40,6 +40,15 @@ test-fuzz:
 ## the worker, the canonical form and the runtime half; operators end to end.
 test-compose:
 	$(SWIPL) -q -g run_tests -t halt test/test_compose.pl
+
+## Reading refusals by recurrence: the same refusal across many scopes is a
+## policy gap, one alone is worth a look. FILE holds Scope-Verdict terms.
+test-triage:
+	$(SWIPL) -q -g run_tests -t halt test/test_triage.pl
+
+triage:
+	@test -n "$(FILE)" || { echo "usage: make triage FILE=refusals.pl"; exit 2; }
+	$(SWIPL) -q -g "triage_file('$(FILE)')" -t halt tools/triage.pl
 
 ## The judge worker: reader fixtures in-process, protocol tests against a spawned worker.
 test-worker:

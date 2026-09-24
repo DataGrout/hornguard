@@ -30,19 +30,19 @@ clause_verdict(clause_body_qualified,  iso, [iso],
 %% Heads may not shadow control, pinned, or profile predicates.
 clause_verdict(clause_head_pinned,     iso, [iso],
         (shell(_) :- true),
-        refused(escape_attempt, head(pinned(process)))).
+        refused(shadowing, head(pinned(process)))).
 clause_verdict(clause_head_profile,    iso, [iso],
         (atom_length(_, 0) :- true),
-        refused(escape_attempt, head(profile(iso)))).
+        refused(shadowing, head(profile(iso)))).
 clause_verdict(clause_head_control,    iso, [iso],
         (true :- fail),
-        refused(escape_attempt, head(control))).
+        refused(shadowing, head(control))).
 clause_verdict(clause_head_qualified,  iso, [iso],
         (user:foo :- true),
-        refused(escape_attempt, head(qualified))).
+        refused(shadowing, head(qualified))).
 clause_verdict(clause_head_unbound,    iso, [iso],
         (_ :- true),
-        refused(escape_attempt, unbound_head)).
+        refused(shadowing, unbound_head)).
 
 %% Directives are not clauses.
 clause_verdict(clause_directive,       iso, [iso],
@@ -57,20 +57,20 @@ clause_verdict(clause_dcg_unsupported, iso, [iso],
 %% More heads that may not be redefined: every pinned class, several
 %% profiles, every control construct.
 clause_verdict(clause_head_pinned_format,   iso, [iso], (format(_, _) :- true),
-        refused(escape_attempt, head(pinned(format)))).
+        refused(shadowing, head(pinned(format)))).
 clause_verdict(clause_head_pinned_flags,    iso, [iso], (current_prolog_flag(_, _) :- true),
-        refused(escape_attempt, head(pinned(flags_ops)))).
+        refused(shadowing, head(pinned(flags_ops)))).
 clause_verdict(clause_head_pinned_database, iso, [iso], assertz(_),
-        refused(escape_attempt, head(pinned(database)))).
+        refused(shadowing, head(pinned(database)))).
 clause_verdict(clause_head_profile_member,  iso, [iso], (member(_, _) :- true),
-        refused(escape_attempt, head(profile(prologue)))).
+        refused(shadowing, head(profile(prologue)))).
 clause_verdict(clause_head_profile_findall, iso, [iso], (findall(_, _, _) :- true),
-        refused(escape_attempt, head(profile(iso)))).
+        refused(shadowing, head(profile(iso)))).
 clause_verdict(clause_head_control_conj,    iso, [iso], (','(_, _) :- true),
-        refused(escape_attempt, head(control))).
+        refused(shadowing, head(control))).
 clause_verdict(clause_head_control_cut,     iso, [iso], (! :- true),
-        refused(escape_attempt, head(control))).
+        refused(shadowing, head(control))).
 clause_verdict(clause_head_control_neg,     iso, [iso], (\+ _ :- true),
-        refused(escape_attempt, head(profile(iso)))).
+        refused(shadowing, head(profile(iso)))).
 clause_verdict(clause_head_control_colon,   iso, [iso], ((_ : _) :- true),
-        refused(escape_attempt, head(qualified))).
+        refused(shadowing, head(qualified))).
