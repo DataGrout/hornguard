@@ -412,8 +412,46 @@ hg_author_name(VarNames, V, Name=V) :-
 hg_var_in(V, [X|Xs]) :-
     (   V == X -> true ; hg_var_in(V, Xs) ).
 
+%   The canonical text is what a receipt hashes and what another engine
+%   reads, so it must not depend on which SWI wrote it. Two places the
+%   engine's writer changed between 9.2 and 10.0 are pinned down here:
+%   a curly term is always written in functional notation, {}(X), and a
+%   float is formatted by this module rather than by the engine.
 canonical_write(Term, Bindings, Text) :-
     with_output_to(string(Text),
                    write_term(Term, [ quoted(true), ignore_ops(true),
                                       numbervars(false), variable_names(Bindings),
-                                      spacing(standard) ])).
+                                      spacing(standard), brace_terms(false),
+                                      portray_goal(hg_portray_float) ])).
+
+%   Floats: the shortest of 15 and 17 significant digits that reads back to
+%   the same double, through C's printf so every SWI and platform agrees,
+%   with a fraction always present so ISO engines read a float and never
+%   an integer. Non-finite values fall through to the engine's own writer.
+:- public hg_portray_float/2.
+hg_portray_float(F, _) :-
+    float(F),
+    hg_float_text(F, Text),
+    write(Text).
+
+hg_float_text(F, Text) :-
+    format(string(S15), "~15g", [F]),
+    (   catch(number_string(N15, S15), _, fail), float(N15), N15 =:= F
+    ->  S0 = S15
+    ;   format(string(S0), "~17g", [F])
+    ),
+    \+ sub_string(S0, _, _, _, "inf"),
+    \+ sub_string(S0, _, _, _, "nan"),
+    hg_float_with_fraction(S0, Text).
+
+%   "15000000000" -> "15000000000.0", "1e+22" -> "1.0e+22", "0.1" as is.
+hg_float_with_fraction(S0, Text) :-
+    (   sub_string(S0, Before, _, After, "e")
+    ->  sub_string(S0, 0, Before, _, Mant),
+        sub_string(S0, _, After, 0, Exp),
+        (   sub_string(Mant, _, _, _, ".") -> Text = S0
+        ;   format(string(Text), "~s.0e~s", [Mant, Exp])
+        )
+    ;   sub_string(S0, _, _, _, ".") -> Text = S0
+    ;   string_concat(S0, ".0", Text)
+    ).

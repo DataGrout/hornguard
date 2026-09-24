@@ -13,7 +13,10 @@ reader(rd_sc_univ,      scryer, "G =.. [f, 1]",           "=..(G,[f,1])").
 reader(rd_sc_clause,    scryer, "p(X) :- q(X), \\+ r(X)", ":-(p(X),','(q(X),\\+(r(X))))").
 reader(rd_sc_caret,     scryer, "setof(X, Y^p(X,Y), L)",  "setof(X,^(Y,p(X,Y)),L)").
 reader(rd_sc_ite,       scryer, "(a -> b ; c)",           ";(->(a,b),c)").
-reader(rd_sc_curly,     scryer, "C = {a, b}",             "=(C,{','(a,b)})").
+reader(rd_sc_curly,     scryer, "C = {a, b}",             "=(C,{}(','(a,b)))").
+reader(rd_sc_float_exp, scryer, "X = 1.0e22",             "=(X,1.0e+22)").
+reader(rd_sc_float_neg, scryer, "X = -2.5e-7",            "=(X,-2.5e-07)").
+reader(rd_sc_float_big, scryer, "X = 1.5e10",             "=(X,15000000000.0)").
 reader(rd_sc_arith,     scryer, "X is 1 + 2 * 3 - -1",    "is(X,-(+(1,*(2,3)),-1))").
 reader(rd_sc_list,      scryer, "Z = [a|T]",              "=(Z,[a|T])").
 reader(rd_sc_quoted,    scryer, "X = 'Hello World'",      "=(X,'Hello World')").
@@ -21,6 +24,9 @@ reader(rd_sc_neg_lit,   scryer, "X = - 1",                "=(X,-(1))").
 reader(rd_sc_chars,     scryer, "Y = \"ab\"",             "=(Y,[a,b])").
 
 reader(rd_tr_conj,      trealla, "a, b, c",               "','(a,','(b,c))").
+reader(rd_tr_curly,     trealla, "C = {a, b}",            "=(C,{}(','(a,b)))").
+reader(rd_tr_float_exp, trealla, "X = 1.0e22",            "=(X,1.0e+22)").
+reader(rd_tr_float_neg, trealla, "X = -2.5e-7",           "=(X,-2.5e-07)").
 reader(rd_tr_univ,      trealla, "G =.. [f, 1]",          "=..(G,[f,1])").
 reader(rd_tr_clause,    trealla, "p(X) :- q(X), \\+ r(X)", ":-(p(X),','(q(X),\\+(r(X))))").
 reader(rd_tr_caret,     trealla, "setof(X, Y^p(X,Y), L)", "setof(X,^(Y,p(X,Y)),L)").

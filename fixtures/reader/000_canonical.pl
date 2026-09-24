@@ -20,7 +20,8 @@ reader(rd_quote_needed, swi, "X = 'Hello World'",         "=(X,'Hello World')").
 reader(rd_list,         swi, "Z = [a|T]",                 "=(Z,[a|T])").
 reader(rd_list_full,    swi, "Z = [a, b, c]",             "=(Z,[a,b,c])").
 reader(rd_empty_list,   swi, "S = [], U = '[]'",          "','(=(S,[]),=(U,'[]'))").
-reader(rd_curly,        swi, "C = {a, b}",                "=(C,{','(a,b)})").
+reader(rd_curly,        swi, "C = {a, b}",                "=(C,{}(','(a,b)))").
+reader(rd_curly_nested, swi, "C = {a, {b}}",              "=(C,{}(','(a,{}(b))))").
 reader(rd_string_swi,   swi, "Y = \"str\"",               "=(Y,\"str\")").
 reader(rd_codes_iso,    iso, "Y = \"ab\"",                "=(Y,[97,98])").
 reader(rd_chars_scryer, scryer, "Y = \"ab\"",             "=(Y,[a,b])").
@@ -34,6 +35,10 @@ reader(rd_univ,         swi, "G =.. [f, 1]",              "=..(G,[f,1])").
 reader(rd_escapes,      swi, "X = 'a\\nb'",               "=(X,'a\\nb')").
 reader(rd_big_int,      swi, "X = 123456789012345678901234567890", "=(X,123456789012345678901234567890)").
 reader(rd_float,        swi, "X = 1.5e10",                "=(X,15000000000.0)").
+reader(rd_float_short,  swi, "X = 0.1",                   "=(X,0.1)").
+reader(rd_float_long,   swi, "X = 0.30000000000000004",   "=(X,0.30000000000000004)").
+reader(rd_float_exp,    swi, "X = 1.0e22",                "=(X,1.0e+22)").
+reader(rd_float_neg,    swi, "X = -2.5e-7",               "=(X,-2.5e-07)").
 reader(rd_op_as_atom,   swi, "X = (+), Y = (:-)",         "','(=(X,+),=(Y,:-))").
 reader(rd_nested_ops,   swi, "X = a:b:c",                 "=(X,:(a,:(b,c)))").
 %% An author's own '$VAR'/1 terms are data and stay data: a writer in
