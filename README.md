@@ -20,18 +20,18 @@ reopen them. Every refusal is classified, so a host learns not only that a
 goal was stopped but whether it is being probed.
 
 ```mermaid
-flowchart LR
+flowchart TB
     A[Untrusted author] -->|goal or clause| J
     subgraph Hornguard
-        J[Judge] --- P[(Profiles)]
-        J --- K[(Pinned classes)]
+        direction LR
+        P[(Profiles)] --- J[Judge] --- K[(Pinned classes)]
         J --- H[(Host policy)]
     end
-    J -->|admit, or admit_with a guarded term| E[Prolog engine]
-    E -->|result| A
+    J -->|admit, or admit_with<br/>a guarded term| E[Prolog engine]
     J -->|admit_needs| N[Host loads a profile<br/>or stores a predicate]
-    N -->|judged again| J
     J -->|refused + class| R[Host: error to author,<br/>event to operator]
+    E -->|result| A
+    N -.->|judged again| J
 ```
 
 The name is Horn clauses plus guard: the condition a clause must pass before its
