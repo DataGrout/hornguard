@@ -7,7 +7,15 @@
 3. `tools/tag.sh VERSION`. It refuses on a dirty tree, off `main`, on a
    version mismatch, or on a missing changelog section, runs the suite, and
    makes the tag: signed when `user.signingkey` is configured, annotated
-   otherwise. `--quick` runs only the fast suites when CI has just passed on
+   otherwise. Sign it. The key is an SSH key made for release signing on
+   the machine you release from, registered on GitHub as a signing key and
+   listed in `.allowed_signers` before the tag is made, so the tag's own
+   tree vouches for the key that signed it. Repo-local config keeps other
+   checkouts untouched:
+
+       git config gpg.format ssh
+       git config user.signingkey ~/.ssh/hornguard_release_ed25519.pub
+       git config tag.gpgsign true `--quick` runs only the fast suites when CI has just passed on
    the same commit.
 4. `git push origin vVERSION`. The `release` workflow verifies the versions
    again, builds `hornguard-VERSION.zip` (the pack and nothing else), takes

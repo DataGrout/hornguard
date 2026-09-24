@@ -1,0 +1,6 @@
+# Keys allowed to sign Hornguard release tags, one per machine that makes
+# releases. Verify a tag with:
+#   git config gpg.ssh.allowedSignersFile .allowed_signers
+#   git tag -v v0.1.0
+# A retired machine's key is removed here; a new machine's key is added.
+nick@datagrout.ai namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILaqSmtkoEoAw0eYUF1A+Dc3V3tAVf3nk0PcLXHE48Kt hornguard release signing, apple m3 pro 2026

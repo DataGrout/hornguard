@@ -5,6 +5,20 @@
 The latest release. Hornguard is pre-1.0: fixes land on the current version
 and there are no backports.
 
+## Verifying a release
+
+Release tags are signed with SSH keys. The keys allowed to sign one are listed
+in [`.allowed_signers`](.allowed_signers), one per machine that makes
+releases; a retired machine's key is removed from the list, a compromised one
+is removed and noted here. To check a tag:
+
+```
+git config gpg.ssh.allowedSignersFile .allowed_signers
+git tag -v v0.1.0
+```
+
+GitHub shows the same check as a Verified badge on the tag and its release.
+
 ## Reporting
 
 Hornguard is the admission boundary of a sandbox whose authors are AI agents,
