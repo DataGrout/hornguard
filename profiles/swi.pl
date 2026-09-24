@@ -12,6 +12,8 @@
 %%   index/1                            deprecated_message
 %%   write_ln/1                         pinned(streams)
 %%   current_type/3                     reflection
+%%   reduced/1                          trie_state_on_swi_10
+%%   reduced/3                          trie_state_on_swi_10
 %%   (:<)/2                             dicts_deferred
 %%   '<meta-call>'/1                    internal
 %%   (>:<)/2                            dicts_deferred
@@ -80,6 +82,7 @@
 %%   trie_gen_compiled/3                internal
 %%   undefined/0                        wfs_opt_in
 %%   writeln/1                          pinned(streams)
+%%   term_factorized/3                  trie_state_on_swi_10
 
 :- multifile allow/2, meta_spec/2.
 
@@ -196,8 +199,6 @@ allow(swi_solution_sequences, group_by/4).
 allow(swi_solution_sequences, limit/2).
 allow(swi_solution_sequences, offset/2).
 allow(swi_solution_sequences, order_by/2).
-allow(swi_solution_sequences, reduced/1).
-allow(swi_solution_sequences, reduced/3).
 meta_spec(swi_solution_sequences, call_nth(0,?)).
 meta_spec(swi_solution_sequences, distinct(0)).
 meta_spec(swi_solution_sequences, distinct(?,0)).
@@ -205,8 +206,6 @@ meta_spec(swi_solution_sequences, group_by(?,?,0,?)).
 meta_spec(swi_solution_sequences, limit(?,0)).
 meta_spec(swi_solution_sequences, offset(?,0)).
 meta_spec(swi_solution_sequences, order_by(?,0)).
-meta_spec(swi_solution_sequences, reduced(0)).
-meta_spec(swi_solution_sequences, reduced(?,0,?)).
 
 %% swi_strings (from strings)
 allow(swi_strings, dedent_lines/3).
@@ -288,7 +287,6 @@ allow(swi_terms, same_functor/3).
 allow(swi_terms, same_functor/4).
 allow(swi_terms, subsumes/2).
 allow(swi_terms, subsumes_chk/2).
-allow(swi_terms, term_factorized/3).
 allow(swi_terms, term_size/2).
 allow(swi_terms, term_subsumer/3).
 allow(swi_terms, variant/2).

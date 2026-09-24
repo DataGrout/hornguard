@@ -63,6 +63,13 @@ exclude(index/1,                   deprecated_message).
 exclude(at_halt/1,                 process).
 exclude(cancel_halt/1,             process).
 exclude(sleep/1,                   timing).
+%   Safe to SWI 9.2's sandbox, refused by SWI 10's, whose implementations
+%   build a trie (trie_new/1 is not a sandbox primitive there). Found by the
+%   differential on the 10.x CI jobs; excluded so the profile admits nothing
+%   the engine a host runs would refuse.
+exclude(reduced/1,                 trie_state_on_swi_10).
+exclude(reduced/3,                 trie_state_on_swi_10).
+exclude(term_factorized/3,         trie_state_on_swi_10).
 exclude(statistics/2,              reflection).
 exclude(thread_self/1,             threads).
 exclude(get_time/1,                timing).

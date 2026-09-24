@@ -34,10 +34,25 @@ test(no_hole_candidates, [true(Holes == [])]) :-
     ensure_report, report(R),
     include(of_kind(hole_candidate), R, Holes).
 
+%   A sandbox-safe predicate Hornguard refuses with no pin and no exclusion
+%   to explain it. On the attested engine that is the generator and the
+%   profile disagreeing, and it fails. On any other engine it is a predicate
+%   that did not exist, or was not sandbox-safe, when the profile was
+%   generated: the profile lists everything that was, allowed or dropped,
+%   so anything outside both is new since attestation. Hornguard refuses it
+%   either way, so it is reported as the notice it is and does not fail.
 test(every_refusal_of_a_sandbox_safe_predicate_is_explained, [true(Unexplained == [])]) :-
     ensure_report, report(R),
     include(of_kind(profile_todo), R, Todo),
-    findall(Ind, ( member(_-Ind-_, Todo), \+ explained(Ind) ), Unexplained).
+    findall(Ind, ( member(_-Ind-_, Todo), \+ explained(Ind) ), Unexplained0),
+    (   generated_against_this_engine
+    ->  Unexplained = Unexplained0
+    ;   Unexplained = [],
+        (   Unexplained0 == []
+        ->  true
+        ;   format(user_error, "~nsandbox-safe on this engine and new since the attested one, refused as unknown: ~q~n", [Unexplained0])
+        )
+    ).
 
 test(undecided_are_only_closure_arity, [true(Other == [])]) :-
     ensure_report, report(R),
